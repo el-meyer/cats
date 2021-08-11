@@ -29,58 +29,42 @@
 #'
 #' random <- TRUE
 #'
-#' rr_comb <- c(0.40, 0.45, 0.50)
+#' rr_comb <- c(0.20, 0.25, 0.3)
 #' prob_comb_rr <- c(0.4, 0.4, 0.2)
-#' rr_mono <- c(0.20, 0.25, 0.30)
-#' prob_mono_rr <- c(0.2, 0.4, 0.4)
-#' rr_back <- c(0.20, 0.25, 0.30)
-#' prob_back_rr <- c(0.2, 0.4, 0.4)
 #' rr_plac <- c(0.10, 0.12, 0.14)
 #' prob_plac_rr <- c(0.25, 0.5, 0.25)
 #'
-#' rr_transform <- list(
-#'   function(x) {return(c(0.75*(1 - x), (1-0.75)*(1-x), (1-0.75)*x, 0.75*x))},
-#'   function(x) {return(c(0.85*(1 - x), (1-0.85)*(1-x), (1-0.85)*x, 0.85*x))}
-#' )
-#' prob_rr_transform <- c(0.5, 0.5)
+#' rr_transform <- list(function(x) {return(c(0.85*(1 - x), (1-0.85)*(1-x), (1-0.85)*x, 0.85*x))})
+#' prob_rr_transform <- 1
 #'
-#' cohorts_max <- 4
+#' cohorts_start <- 2
+#' design_type <- "combination"
+#' arms_per_cohort <- 2
+#' cohorts_max <- 3
 #' safety_prob <- 0
-#' sharing_type <- "all"
-#' trial_struc <- "all_plac"
-#' sr_drugs_pos <- 4
-#' n_int <- 100
-#' n_fin <- 200
-#' stage_data <- TRUE
-#' cohort_random <- 0.05
-#' target_rr <- c(0,0,1)
-#' cohort_offset <- 0
-#' random_type <- "absolute"
+#' sharing_type <- "concurrent"
+#' sr_drugs_pos <- 5
 #' sr_first_pos <- FALSE
-#' missing_prob <- 0.1
+#' n_int <- 50
+#' n_fin <- 100
+#' stage_data <- TRUE
+#' cohort_random <- 0.1
+#' cohort_offset <- 0
+#' cohorts_sim <- Inf
+#' random_type <- "risk_difference"
+#' missing_prob <- 0.2
+#' cohort_fixed <- NULL
+#' bio_lag <- 12
+#' hist_lag <- 48
+#' accrual_type <- "fixed"
+#' accrual_param <- 9
+#' time_trend <- 0.001
 #'
-#' # Vergleich Combo vs Mono
-#' Bayes_Sup1 <- matrix(nrow = 3, ncol = 3)
-#' Bayes_Sup1[1,] <- c(0.05, 0.90, 1.00)
-#' Bayes_Sup1[2,] <- c(0.05, 0.65, 1.00)
-#' Bayes_Sup1[3,] <- c(0.10, 0.50, 1.00)
-#' # Vergleich Combo vs Backbone
-#' Bayes_Sup2 <- matrix(nrow = 3, ncol = 3)
-#' Bayes_Sup2[1,] <- c(0.05, 0.90, 1.00)
-#' Bayes_Sup2[2,] <- c(NA, NA, NA)
-#' Bayes_Sup2[3,] <- c(NA, NA, NA)
-#' # Vergleich Mono vs Placebo
-#' Bayes_Sup3 <- matrix(nrow = 3, ncol = 3)
-#' Bayes_Sup3[1,] <- c(0.00, 0.90, 1.00)
-#' Bayes_Sup3[2,] <- c(NA, NA, NA)
-#' Bayes_Sup3[3,] <- c(NA, NA, NA)
-#' # Vergleich Back vs Placebo
-#' Bayes_Sup4 <- matrix(nrow = 3, ncol = 3)
-#' Bayes_Sup4[1,] <- c(0.00, 0.90, 1.00)
-#' Bayes_Sup4[2,] <- c(NA, NA, NA)
-#' Bayes_Sup4[3,] <- c(NA, NA, NA)
-#' Bayes_Sup <- list(list(Bayes_Sup1, Bayes_Sup2, Bayes_Sup3, Bayes_Sup4),
-#'              list(Bayes_Sup1, Bayes_Sup2, Bayes_Sup3, Bayes_Sup4))
+#' # Vergleich Combo vs Plac
+#' Bayes_Sup1 <- matrix(nrow = 1, ncol = 2)
+#' Bayes_Sup1[1,] <- c(0.00, 0.95)
+#' Bayes_Sup <- list(list(Bayes_Sup1),
+#'                   list(Bayes_Sup1))
 #'
 #' ocs <- trial_ocs(
 #' n_int = n_int, n_fin = n_fin, random_type = random_type,
@@ -88,11 +72,13 @@
 #' rr_transform = rr_transform, random = random, prob_comb_rr = prob_comb_rr,
 #' prob_mono_rr = prob_mono_rr, prob_back_rr = prob_back_rr, prob_plac_rr = prob_plac_rr,
 #' stage_data = stage_data, cohort_random = cohort_random, cohorts_max = cohorts_max,
-#' sr_drugs_pos = sr_drugs_pos, target_rr = target_rr, sharing_type = sharing_type,
-#' sr_first_pos = sr_first_pos, safety_prob = safety_prob, Bayes_Sup = Bayes_Sup,
-#' prob_rr_transform = prob_rr_transform, cohort_offset = cohort_offset,
-#' trial_struc = trial_struc, missing_prob = missing_prob,
-#' iter = 150, coresnum = 1, save = FALSE, ret_list = TRUE, plot_ocs = TRUE
+#' sr_drugs_pos = sr_drugs_pos, sharing_type = sharing_type,
+#' safety_prob = safety_prob, Bayes_Sup = Bayes_Sup, prob_rr_transform = prob_rr_transform,
+#' cohort_offset = cohort_offset, sr_first_pos = sr_first_pos,
+#' missing_prob = missing_prob, cohort_fixed = cohort_fixed, accrual_type = accrual_type,
+#' accrual_param = accrual_param, bio_lag = bio_lag, hist_lag = hist_lag,
+#' time_trend = time_trend, cohorts_start = cohorts_start, cohorts_sim = cohorts_sim,
+#' iter = 10, coresnum = 1, save = FALSE, ret_list = TRUE, plot_ocs = TRUE
 #' )
 #'
 #' ocs[[3]]
@@ -156,36 +142,17 @@ trial_ocs <- function(iter, coresnum = 1, save = FALSE, path = NULL, filename = 
 
   # Return OCs
   ret1 <- list(
+    Avg_WhatIf_Agreement       = mean(sapply(trial_results, function(x) x$Trial_Overview$Whatif_Agreement_Trial)),
     Avg_Pat                    = mean(sapply(trial_results, function(x) x$Trial_Overview$Total_N)),
-    Avg_Pat_First_Suc          = mean(sapply(trial_results, function(x) x$Trial_Overview$Total_N_First_Suc), na.rm = TRUE),
-    Avg_Perc_Pat_Sup_Plac_Th   = mean(sapply(trial_results, function(x) x$Trial_Overview$Perc_N_Sup_Plac_Th)),
-    Avg_Perc_Pat_Sup_Plac_Real = mean(sapply(trial_results, function(x) x$Trial_Overview$Perc_N_Sup_Plac_Real)),
-    Avg_Pat_Comb               = mean(sapply(trial_results, function(x) x$Trial_Overview$Total_N_Comb)),
-    Avg_Pat_Mono               = mean(sapply(trial_results, function(x) x$Trial_Overview$Total_N_Mono)),
-    Avg_Pat_Back               = mean(sapply(trial_results, function(x) x$Trial_Overview$Total_N_Back)),
-    Avg_Pat_Plac               = mean(sapply(trial_results, function(x) x$Trial_Overview$Total_N_Plac)),
-    Avg_Pat_Plac_First_Suc     = mean(sapply(trial_results, function(x) x$Trial_Overview$Total_N_Plac_First_Suc), na.rm = TRUE),
-    Avg_Pat_Plac_Pool          = mean(sapply(trial_results, function(x) x$Trial_Overview$Total_N_Plac_Pool), na.rm = TRUE),
-    Avg_RR_Comb                = mean(unlist(sapply(trial_results, function(x) x$Trial_Overview$RR_Comb)), na.rm = TRUE),
-    Avg_RR_Mono                = mean(unlist(sapply(trial_results, function(x) x$Trial_Overview$RR_Mono)), na.rm = TRUE),
-    Avg_RR_Back                = mean(unlist(sapply(trial_results, function(x) x$Trial_Overview$RR_Back)), na.rm = TRUE),
-    Avg_RR_Plac                = mean(unlist(sapply(trial_results, function(x) x$Trial_Overview$RR_Plac)), na.rm = TRUE),
-    SD_RR_Comb                 = stats::sd(unlist(sapply(trial_results, function(x) x$Trial_Overview$RR_Comb)), na.rm = TRUE),
-    SD_RR_Mono                 = stats::sd(unlist(sapply(trial_results, function(x) x$Trial_Overview$RR_Mono)), na.rm = TRUE),
-    SD_RR_Back                 = stats::sd(unlist(sapply(trial_results, function(x) x$Trial_Overview$RR_Back)), na.rm = TRUE),
-    SD_RR_Plac                 = stats::sd(unlist(sapply(trial_results, function(x) x$Trial_Overview$RR_Plac)), na.rm = TRUE),
-    Avg_Suc_Hist               = mean(sapply(trial_results, function(x) x$Trial_Overview$Successes_Hist)),
-    Avg_Suc_Hist_Comb          = mean(sapply(trial_results, function(x) x$Trial_Overview$Successes_Hist_Comb)),
-    Avg_Suc_Hist_Mono          = mean(sapply(trial_results, function(x) x$Trial_Overview$Successes_Hist_Mono)),
-    Avg_Suc_Hist_Back          = mean(sapply(trial_results, function(x) x$Trial_Overview$Successes_Hist_Back)),
-    Avg_Suc_Hist_Plac          = mean(sapply(trial_results, function(x) x$Trial_Overview$Successes_Hist_Plac)),
-    Avg_Suc_Bio                = mean(sapply(trial_results, function(x) x$Trial_Overview$Successes_Bio)),
-    Avg_Suc_Bio_Comb           = mean(sapply(trial_results, function(x) x$Trial_Overview$Successes_Bio_Comb)),
-    Avg_Suc_Bio_Mono           = mean(sapply(trial_results, function(x) x$Trial_Overview$Successes_Bio_Mono)),
-    Avg_Suc_Bio_Back           = mean(sapply(trial_results, function(x) x$Trial_Overview$Successes_Bio_Back)),
-    Avg_Suc_Bio_Plac           = mean(sapply(trial_results, function(x) x$Trial_Overview$Successes_Bio_Plac)),
+    Avg_Pat_First_Suc          = mean(sapply(trial_results, function(x) x$Trial_Overview$Pat_First_Suc), na.rm = TRUE),
+    Avg_Overrunning            = mean(sapply(trial_results, function(x) x$Trial_Overview$Overrunning_Trial)),
     Avg_Cohorts                = mean(sapply(trial_results, function(x) x$Trial_Overview$N_Cohorts)),
-    Avg_Cohorts_First_Suc      = mean(sapply(trial_results, function(x) x$Trial_Overview$N_Cohorts_First_Suc), na.rm = TRUE),
+    Avg_Cohort_N               = mean(sapply(trial_results, function(x) x$Trial_Overview$Final_N_Cohort_Trial)),
+    Avg_Time                   = mean(sapply(trial_results, function(x) x$Trial_Overview$Total_Time)),
+    Avg_Time_First_Suc         = mean(sapply(trial_results, function(x) x$Trial_Overview$Time_First_Suc), na.rm = TRUE),
+    Avg_Int_Go                 = mean(sapply(trial_results, function(x) x$Trial_Overview$Int_GO_Trial)),
+    Avg_Int_Stop               = mean(sapply(trial_results, function(x) x$Trial_Overview$Int_STOP_Trial)),
+    Avg_Rand_Stop              = mean(sapply(trial_results, function(x) x$Trial_Overview$Safety_STOP_Trial)),
     Avg_TP                     = mean(sapply(trial_results, function(x) x$Trial_Overview$TP)),
     Avg_FP                     = mean(sapply(trial_results, function(x) x$Trial_Overview$FP)),
     Avg_TN                     = mean(sapply(trial_results, function(x) x$Trial_Overview$TN)),
