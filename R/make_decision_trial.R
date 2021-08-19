@@ -27,6 +27,16 @@
 #'
 #' @param hist_miss        Whether or not to exclude missing histology data
 #'
+#' @param design_type      Which design_type to use
+#'
+#' @param arms_per_cohort  Number of arms per cohort
+#'
+#' @param bio_lag          Biomarker Lag
+#'
+#' @param hist_lag         Histology Lag
+#'
+#' @param sharing_type     Type of Data Sharing to perform
+#'
 #' @param ...              Further arguments inherited from simulate_trial
 #'
 #' @return List containing original res_list and results of decision rules
@@ -146,7 +156,8 @@
 #' @export
 make_decision_trial <- function(res_list, which_cohort, Bayes_Sup = NULL, Bayes_Fut = NULL,
                                 w = 0.5, P_Sup = NULL, P_Fut = NULL, interim, beta_prior = 0.5,
-                                analysis_time, dataset, hist_miss = TRUE, ...) {
+                                analysis_time, dataset, hist_miss = TRUE, sharing_type,
+                                design_type, bio_lag, hist_lag, arms_per_cohort, ...) {
 
   # todo: allow Estimates and CIs to be single arm rules for combo, mono and back
   # (atm only implemented as two-arm decision rules)
@@ -189,8 +200,6 @@ make_decision_trial <- function(res_list, which_cohort, Bayes_Sup = NULL, Bayes_
     return(prob_sup)
   }
 
-  "%>%" <- dplyr::"%>%"
-
   # Create list for whether futility/superiority decisions were made for every single rule for all three comparisons
   # All list elements will be matrices, with rows corresponding to multiple decision rules and columns corresponding to the
   # three comparisons (j=1: Combo vs Mono, j=2: Combo vs Back, j=3: Mono vs Placebo, j=4: Back vs Placebo)
@@ -205,29 +214,38 @@ make_decision_trial <- function(res_list, which_cohort, Bayes_Sup = NULL, Bayes_
   # Combo
   if (interim) {
 
-    resp_bio <-
-      dataset %>%
-      dplyr::filter(
-        Cohort == which_cohort,
-        Arm == "Comb",
-        ArrivalTime < analysis_time - bio_lag
-      ) %>%
-      dplyr::pull(RespBio)
+    ind <-
+      which(
+        dataset$Cohort == which_cohort &
+          dataset$Arm == "Comb" &
+          dataset$ArrivalTime < analysis_time - bio_lag
+      )
+
+    resp_bio <- dataset$RespBio[ind]
 
     resp_bio_tot[1] <- sum(resp_bio)
     n_tot[1] <- length(resp_bio)
 
   } else {
 
-    resp_hist <-
-      dataset %>%
-      dplyr::filter(
-        Cohort == which_cohort,
-        Arm == "Comb",
-        ArrivalTime < analysis_time - hist_lag # should be all
-      ) %>%
-        {if (hist_miss) dplyr::filter(., HistMissing != 1) else .} %>%
-      dplyr::pull(RespHist)
+    if (hist_miss) {
+      ind <-
+        which(
+          dataset$Cohort == which_cohort &
+            dataset$Arm == "Comb" &
+            dataset$ArrivalTime < analysis_time - hist_lag &
+            !dataset$HistMissing
+        )
+    } else {
+      ind <-
+        which(
+          dataset$Cohort == which_cohort &
+            dataset$Arm == "Comb" &
+            dataset$ArrivalTime < analysis_time - hist_lag
+        )
+    }
+
+    resp_hist <- dataset$RespHist[ind]
 
     resp_hist_tot[1] <- sum(resp_hist)
     n_tot[1] <- length(resp_hist)
@@ -240,13 +258,14 @@ make_decision_trial <- function(res_list, which_cohort, Bayes_Sup = NULL, Bayes_
 
     # if sharing all data, time frame to take under consideration is simply all data from all cohorts
     if (sharing_type == "all") {
-      resp_bio <-
-        dataset %>%
-        dplyr::filter(
-          Arm == "Plac",
-          ArrivalTime < analysis_time - bio_lag
-        ) %>%
-        dplyr::pull(RespBio)
+
+      ind <-
+        which(
+            dataset$Arm == "Plac" &
+            dataset$ArrivalTime < analysis_time - bio_lag
+        )
+
+      resp_bio <- dataset$RespBio[ind]
 
       resp_bio_tot[arms_per_cohort] <- sum(resp_bio)
       n_tot[arms_per_cohort] <- length(resp_bio)
@@ -254,14 +273,15 @@ make_decision_trial <- function(res_list, which_cohort, Bayes_Sup = NULL, Bayes_
 
     # if sharing no data, take only data from current Arm
     if (sharing_type == "cohort") {
-      resp_bio <-
-        dataset %>%
-        dplyr::filter(
-          Cohort == which_cohort,
-          Arm == "Plac",
-          ArrivalTime < analysis_time - bio_lag
-        ) %>%
-        dplyr::pull(RespBio)
+
+      ind <-
+        which(
+          dataset$Cohort == which_cohort &
+            dataset$Arm == "Plac" &
+            dataset$ArrivalTime < analysis_time - bio_lag
+        )
+
+      resp_bio <- dataset$RespBio[ind]
 
       resp_bio_tot[arms_per_cohort] <- sum(resp_bio)
       n_tot[arms_per_cohort] <- length(resp_bio)
@@ -269,14 +289,15 @@ make_decision_trial <- function(res_list, which_cohort, Bayes_Sup = NULL, Bayes_
 
     # if sharing concurrent data, take only data from certain time period
     if (sharing_type == "concurrent") {
-      resp_bio <-
-        dataset %>%
-        dplyr::filter(
-          Arm == "Plac",
-          ArrivalTime < analysis_time - bio_lag,
-          ArrivalTime > res_list[[which_cohort]]$Meta$start_time
-        ) %>%
-        dplyr::pull(RespBio)
+
+      ind <-
+        which(
+            dataset$Arm == "Plac" &
+            dataset$ArrivalTime < analysis_time - bio_lag &
+            dataset$ArrivalTime > res_list[[which_cohort]]$Meta$start_time
+        )
+
+      resp_bio <- dataset$RespBio[ind]
 
       resp_bio_tot[arms_per_cohort] <- sum(resp_bio)
       n_tot[arms_per_cohort] <- length(resp_bio)
@@ -284,23 +305,23 @@ make_decision_trial <- function(res_list, which_cohort, Bayes_Sup = NULL, Bayes_
 
     # if dynamic borrowing, create two datasets and combine
     if (sharing_type == "dynamic") {
-      resp_bio_cohort <-
-        dataset %>%
-        dplyr::filter(
-          Cohort == which_cohort,
-          Arm == "Plac",
-          ArrivalTime < analysis_time - bio_lag
-        ) %>%
-        dplyr::pull(RespBio)
 
-      resp_bio_external <-
-        dataset %>%
-        dplyr::filter(
-          Cohort != which_cohort,
-          Arm == "Plac",
-          ArrivalTime < analysis_time - bio_lag
-        ) %>%
-        dplyr::pull(RespBio)
+      ind_c <-
+        which(
+          dataset$Cohort == which_cohort &
+          dataset$Arm == "Plac" &
+            dataset$ArrivalTime < analysis_time - bio_lag
+        )
+
+      ind_e <-
+        which(
+          dataset$Cohort != which_cohort &
+            dataset$Arm == "Plac" &
+            dataset$ArrivalTime < analysis_time - bio_lag
+        )
+
+      resp_bio_cohort <- dataset$RespBio[ind_c]
+      resp_bio_external <- dataset$RespBio[ind_e]
 
       # compute responders from cohort
       suc_bio_c <- sum(resp_bio_cohort)
@@ -327,14 +348,23 @@ make_decision_trial <- function(res_list, which_cohort, Bayes_Sup = NULL, Bayes_
 
     # if sharing all data, time frame to take under consideration is simply all data from all cohorts
     if (sharing_type == "all") {
-      resp_hist <-
-        dataset %>%
-        dplyr::filter(
-          Arm == "Plac",
-          ArrivalTime < analysis_time - hist_lag # should be all
-        ) %>%
-        {if (hist_miss) dplyr::filter(., HistMissing != 1) else .} %>%
-        dplyr::pull(RespHist)
+
+      if (hist_miss) {
+        ind <-
+          which(
+              dataset$Arm == "Plac" &
+              dataset$ArrivalTime < analysis_time - hist_lag &
+              !dataset$HistMissing
+          )
+      } else {
+        ind <-
+          which(
+              dataset$Arm == "Plac" &
+              dataset$ArrivalTime < analysis_time - hist_lag
+          )
+      }
+
+      resp_hist <- dataset$RespHist[ind]
 
       resp_hist_tot[arms_per_cohort] <- sum(resp_hist)
       n_tot[arms_per_cohort] <- length(resp_hist)
@@ -342,15 +372,25 @@ make_decision_trial <- function(res_list, which_cohort, Bayes_Sup = NULL, Bayes_
 
     # if sharing no data, take only data from current Arm
     if (sharing_type == "cohort") {
-      resp_hist <-
-        dataset %>%
-        dplyr::filter(
-          Cohort == which_cohort,
-          Arm == "Plac",
-          ArrivalTime < analysis_time - hist_lag # should be all
-        ) %>%
-        {if (hist_miss) dplyr::filter(., HistMissing != 1) else .} %>%
-        dplyr::pull(RespHist)
+
+      if (hist_miss) {
+        ind <-
+          which(
+            dataset$Cohort == which_cohort &
+              dataset$Arm == "Plac" &
+              dataset$ArrivalTime < analysis_time - hist_lag &
+              !dataset$HistMissing
+          )
+      } else {
+        ind <-
+          which(
+            dataset$Cohort == which_cohort &
+              dataset$Arm == "Plac" &
+              dataset$ArrivalTime < analysis_time - hist_lag
+          )
+      }
+
+      resp_hist <- dataset$RespHist[ind]
 
       resp_hist_tot[arms_per_cohort] <- sum(resp_hist)
       n_tot[arms_per_cohort] <- length(resp_hist)
@@ -358,15 +398,25 @@ make_decision_trial <- function(res_list, which_cohort, Bayes_Sup = NULL, Bayes_
 
     # if sharing concurrent data, take only data from certain time period
     if (sharing_type == "concurrent") {
-      resp_hist <-
-        dataset %>%
-        dplyr::filter(
-          Arm == "Plac",
-          ArrivalTime < analysis_time - hist_lag,
-          ArrivalTime > res_list[[which_cohort]]$Meta$start_time,
-        ) %>%
-        {if (hist_miss) dplyr::filter(., HistMissing != 1) else .} %>%
-        dplyr::pull(RespHist)
+
+      if (hist_miss) {
+        ind <-
+          which(
+              dataset$Arm == "Plac" &
+              dataset$ArrivalTime < analysis_time - hist_lag &
+              dataset$ArrivalTime > res_list[[which_cohort]]$Meta$start_time &
+              !dataset$HistMissing
+          )
+      } else {
+        ind <-
+          which(
+              dataset$Arm == "Plac" &
+              dataset$ArrivalTime < analysis_time - hist_lag &
+              dataset$ArrivalTime > res_list[[which_cohort]]$Meta$start_time
+          )
+      }
+
+      resp_hist <- dataset$RespHist[ind]
 
       resp_hist_tot[arms_per_cohort] <- sum(resp_hist)
       n_tot[arms_per_cohort] <- length(resp_hist)
@@ -374,25 +424,43 @@ make_decision_trial <- function(res_list, which_cohort, Bayes_Sup = NULL, Bayes_
 
     # if dynamic borrowing, create two datasets and combine
     if (sharing_type == "dynamic") {
-      resp_hist_cohort <-
-        dataset %>%
-        dplyr::filter(
-          Cohort == which_cohort,
-          Arm == "Plac",
-          ArrivalTime < analysis_time - hist_lag # should be all
-        ) %>%
-        {if (hist_miss) dplyr::filter(., HistMissing != 1) else .} %>%
-        dplyr::pull(RespHist)
 
-      resp_hist_external <-
-        dataset %>%
-        dplyr::filter(
-          Cohort != which_cohort,
-          Arm == "Plac",
-          ArrivalTime < analysis_time - hist_lag # should be all
-        ) %>%
-        {if (hist_miss) dplyr::filter(., HistMissing != 1) else .} %>%
-        dplyr::pull(RespHist)
+      if (hist_miss) {
+        ind_c <-
+          which(
+            dataset$Cohort == which_cohort &
+              dataset$Arm == "Plac" &
+              dataset$ArrivalTime < analysis_time - hist_lag &
+              !dataset$HistMissing
+          )
+      } else {
+        ind_c <-
+          which(
+            dataset$Cohort == which_cohort &
+              dataset$Arm == "Plac" &
+              dataset$ArrivalTime < analysis_time - hist_lag
+          )
+      }
+
+      if (hist_miss) {
+        ind_e <-
+          which(
+            dataset$Cohort != which_cohort &
+              dataset$Arm == "Plac" &
+              dataset$ArrivalTime < analysis_time - hist_lag &
+              !dataset$HistMissing
+          )
+      } else {
+        ind_e <-
+          which(
+            dataset$Cohort != which_cohort &
+              dataset$Arm == "Plac" &
+              dataset$ArrivalTime < analysis_time - hist_lag
+          )
+      }
+
+      resp_hist_cohort <- dataset$RespHist[ind_c]
+      resp_hist_external <- dataset$RespHist[ind_e]
 
       # compute responders from cohort
       suc_bio_c <- sum(resp_bio_cohort)
@@ -427,29 +495,38 @@ make_decision_trial <- function(res_list, which_cohort, Bayes_Sup = NULL, Bayes_
     # Mono
     if (interim) {
 
-    resp_bio <-
-        dataset %>%
-        dplyr::filter(
-          Cohort == which_cohort,
-          Arm == "Mono",
-          ArrivalTime < analysis_time - bio_lag
-        ) %>%
-        dplyr::pull(RespBio)
+      ind <-
+        which(
+          dataset$Cohort == which_cohort &
+            dataset$Arm == "Mono" &
+            dataset$ArrivalTime < analysis_time - bio_lag
+        )
+
+      resp_bio <- dataset$RespBio[ind]
 
       resp_bio_tot[2] <- sum(resp_bio)
       n_tot[2] <- length(resp_bio)
 
     } else {
 
-      resp_hist <-
-        dataset %>%
-        dplyr::filter(
-          Cohort == which_cohort,
-          Arm == "Mono",
-          ArrivalTime < analysis_time - hist_lag # should be all
-        ) %>%
-        {if (hist_miss) dplyr::filter(., HistMissing != 1) else .} %>%
-        dplyr::pull(RespHist)
+      if (hist_miss) {
+        ind <-
+          which(
+            dataset$Cohort == which_cohort &
+              dataset$Arm == "Mono" &
+              dataset$ArrivalTime < analysis_time - hist_lag &
+              !dataset$HistMissing
+          )
+      } else {
+        ind <-
+          which(
+            dataset$Cohort == which_cohort &
+              dataset$Arm == "Mono" &
+              dataset$ArrivalTime < analysis_time - hist_lag
+          )
+      }
+
+      resp_hist <- dataset$RespHist[ind]
 
       resp_hist_tot[2] <- sum(resp_hist)
       n_tot[2] <- length(resp_hist)
@@ -465,29 +542,38 @@ make_decision_trial <- function(res_list, which_cohort, Bayes_Sup = NULL, Bayes_
     # Mono
     if (interim) {
 
-      resp_bio <-
-        dataset %>%
-        dplyr::filter(
-          Cohort == which_cohort,
-          Arm == "Mono",
-          ArrivalTime < analysis_time - bio_lag
-        ) %>%
-        dplyr::pull(RespBio)
+      ind <-
+        which(
+          dataset$Cohort == which_cohort &
+            dataset$Arm == "Mono" &
+            dataset$ArrivalTime < analysis_time - bio_lag
+        )
+
+      resp_bio <- dataset$RespBio[ind]
 
       resp_bio_tot[2] <- sum(resp_bio)
       n_tot[2] <- length(resp_bio)
 
     } else {
 
-      resp_hist <-
-        dataset %>%
-        dplyr::filter(
-          Cohort == which_cohort,
-          Arm == "Mono",
-          ArrivalTime < analysis_time - hist_lag # should be all
-        ) %>%
-        {if (hist_miss) dplyr::filter(., HistMissing != 1) else .} %>%
-        dplyr::pull(RespHist)
+      if (hist_miss) {
+        ind <-
+          which(
+            dataset$Cohort == which_cohort &
+              dataset$Arm == "Mono" &
+              dataset$ArrivalTime < analysis_time - hist_lag &
+              !dataset$HistMissing
+          )
+      } else {
+        ind <-
+          which(
+            dataset$Cohort == which_cohort &
+              dataset$Arm == "Mono" &
+              dataset$ArrivalTime < analysis_time - hist_lag
+          )
+      }
+
+      resp_hist <- dataset$RespHist[ind]
 
       resp_hist_tot[2] <- sum(resp_hist)
       n_tot[2] <- length(resp_hist)
@@ -505,13 +591,14 @@ make_decision_trial <- function(res_list, which_cohort, Bayes_Sup = NULL, Bayes_
 
         # if sharing all data, time frame to take under consideration is simply all data from all cohorts
         if (sharing_type == "all") {
-          resp_bio <-
-            dataset %>%
-            dplyr::filter(
-              Arm == "Back",
-              ArrivalTime < analysis_time - bio_lag
-            ) %>%
-            dplyr::pull(RespBio)
+
+          ind <-
+            which(
+                dataset$Arm == "Back" &
+                dataset$ArrivalTime < analysis_time - bio_lag
+            )
+
+          resp_bio <- dataset$RespBio[ind]
 
           resp_bio_tot[arms_per_cohort] <- sum(resp_bio)
           n_tot[arms_per_cohort] <- length(resp_bio)
@@ -519,14 +606,15 @@ make_decision_trial <- function(res_list, which_cohort, Bayes_Sup = NULL, Bayes_
 
         # if sharing no data, take only data from current Arm
         if (sharing_type == "cohort") {
-          resp_bio <-
-            dataset %>%
-            dplyr::filter(
-              Cohort == which_cohort,
-              Arm == "Back",
-              ArrivalTime < analysis_time - bio_lag
-            ) %>%
-            dplyr::pull(RespBio)
+
+          ind <-
+            which(
+              dataset$Cohort == which_cohort &
+                dataset$Arm == "Back" &
+                dataset$ArrivalTime < analysis_time - bio_lag
+            )
+
+          resp_bio <- dataset$RespBio[ind]
 
           resp_bio_tot[arms_per_cohort] <- sum(resp_bio)
           n_tot[arms_per_cohort] <- length(resp_bio)
@@ -534,14 +622,15 @@ make_decision_trial <- function(res_list, which_cohort, Bayes_Sup = NULL, Bayes_
 
         # if sharing concurrent data, take only data from certain time period
         if (sharing_type == "concurrent") {
-          resp_bio <-
-            dataset %>%
-            dplyr::filter(
-              Arm == "Back",
-              ArrivalTime < analysis_time - bio_lag,
-              ArrivalTime > res_list[[which_cohort]]$Meta$start_time
-            ) %>%
-            dplyr::pull(RespBio)
+
+          ind <-
+            which(
+                dataset$Arm == "Back" &
+                dataset$ArrivalTime < analysis_time - bio_lag &
+                  dataset$ArrivalTime > res_list[[which_cohort]]$Meta$start_time
+            )
+
+          resp_bio <- dataset$RespBio[ind]
 
           resp_bio_tot[arms_per_cohort] <- sum(resp_bio)
           n_tot[arms_per_cohort] <- length(resp_bio)
@@ -549,23 +638,23 @@ make_decision_trial <- function(res_list, which_cohort, Bayes_Sup = NULL, Bayes_
 
         # if dynamic borrowing, create two datasets and combine
         if (sharing_type == "dynamic") {
-          resp_bio_cohort <-
-            dataset %>%
-            dplyr::filter(
-              Cohort == which_cohort,
-              Arm == "Back",
-              ArrivalTime < analysis_time - bio_lag
-            ) %>%
-            dplyr::pull(RespBio)
 
-          resp_bio_external <-
-            dataset %>%
-            dplyr::filter(
-              Cohort != which_cohort,
-              Arm == "Back",
-              ArrivalTime < analysis_time - bio_lag
-            ) %>%
-            dplyr::pull(RespBio)
+          ind_c <-
+            which(
+              dataset$Cohort == which_cohort &
+                dataset$Arm == "Back" &
+                dataset$ArrivalTime < analysis_time - bio_lag
+            )
+
+          ind_e <-
+            which(
+              dataset$Cohort != which_cohort &
+                dataset$Arm == "Back" &
+                dataset$ArrivalTime < analysis_time - bio_lag
+            )
+
+          resp_bio_cohort <- dataset$RespBio[ind_c]
+          resp_bio_external <- dataset$RespBio[ind_e]
 
           # compute responders from cohort
           suc_bio_c <- sum(resp_bio_cohort)
@@ -592,14 +681,23 @@ make_decision_trial <- function(res_list, which_cohort, Bayes_Sup = NULL, Bayes_
 
         # if sharing all data, time frame to take under consideration is simply all data from all cohorts
         if (sharing_type == "all") {
-          resp_hist <-
-            dataset %>%
-            dplyr::filter(
-              Arm == "Back",
-              ArrivalTime < analysis_time - hist_lag # should be all
-            ) %>%
-            {if (hist_miss) dplyr::filter(., HistMissing != 1) else .} %>%
-            dplyr::pull(RespHist)
+
+          if (hist_miss) {
+            ind <-
+              which(
+                  dataset$Arm == "Back" &
+                  dataset$ArrivalTime < analysis_time - hist_lag &
+                  !dataset$HistMissing
+              )
+          } else {
+            ind <-
+              which(
+                  dataset$Arm == "Back" &
+                  dataset$ArrivalTime < analysis_time - hist_lag
+              )
+          }
+
+          resp_hist <- dataset$RespHist[ind]
 
           resp_hist_tot[arms_per_cohort] <- sum(resp_hist)
           n_tot[arms_per_cohort] <- length(resp_hist)
@@ -607,15 +705,25 @@ make_decision_trial <- function(res_list, which_cohort, Bayes_Sup = NULL, Bayes_
 
         # if sharing no data, take only data from current Arm
         if (sharing_type == "cohort") {
-          resp_hist <-
-            dataset %>%
-            dplyr::filter(
-              Cohort == which_cohort,
-              Arm == "Back",
-              ArrivalTime < analysis_time - hist_lag # should be all
-            ) %>%
-            {if (hist_miss) dplyr::filter(., HistMissing != 1) else .} %>%
-            dplyr::pull(RespHist)
+
+          if (hist_miss) {
+            ind <-
+              which(
+                dataset$Cohort == which_cohort &
+                  dataset$Arm == "Back" &
+                  dataset$ArrivalTime < analysis_time - hist_lag &
+                  !dataset$HistMissing
+              )
+          } else {
+            ind <-
+              which(
+                dataset$Cohort == which_cohort &
+                  dataset$Arm == "Back" &
+                  dataset$ArrivalTime < analysis_time - hist_lag
+              )
+          }
+
+          resp_hist <- dataset$RespHist[ind]
 
           resp_hist_tot[arms_per_cohort] <- sum(resp_hist)
           n_tot[arms_per_cohort] <- length(resp_hist)
@@ -623,15 +731,25 @@ make_decision_trial <- function(res_list, which_cohort, Bayes_Sup = NULL, Bayes_
 
         # if sharing concurrent data, take only data from certain time period
         if (sharing_type == "concurrent") {
-          resp_hist <-
-            dataset %>%
-            dplyr::filter(
-              Arm == "Back",
-              ArrivalTime < analysis_time - hist_lag,
-              ArrivalTime > res_list[[which_cohort]]$Meta$start_time,
-            ) %>%
-            {if (hist_miss) dplyr::filter(., HistMissing != 1) else .} %>%
-            dplyr::pull(RespHist)
+
+          if (hist_miss) {
+            ind <-
+              which(
+                  dataset$Arm == "Back" &
+                  dataset$ArrivalTime < analysis_time - hist_lag &
+                  dataset$ArrivalTime > res_list[[which_cohort]]$Meta$start_time &
+                  !dataset$HistMissing
+              )
+          } else {
+            ind <-
+              which(
+                  dataset$Arm == "Back" &
+                  dataset$ArrivalTime < analysis_time - hist_lag &
+                  dataset$ArrivalTime > res_list[[which_cohort]]$Meta$start_time
+              )
+          }
+
+          resp_hist <- dataset$RespHist[ind]
 
           resp_hist_tot[arms_per_cohort] <- sum(resp_hist)
           n_tot[arms_per_cohort] <- length(resp_hist)
@@ -639,25 +757,43 @@ make_decision_trial <- function(res_list, which_cohort, Bayes_Sup = NULL, Bayes_
 
         # if dynamic borrowing, create two datasets and combine
         if (sharing_type == "dynamic") {
-          resp_hist_cohort <-
-            dataset %>%
-            dplyr::filter(
-              Cohort == which_cohort,
-              Arm == "Back",
-              ArrivalTime < analysis_time - hist_lag # should be all
-            ) %>%
-            {if (hist_miss) dplyr::filter(., HistMissing != 1) else .} %>%
-            dplyr::pull(RespHist)
 
-          resp_hist_external <-
-            dataset %>%
-            dplyr::filter(
-              Cohort != which_cohort,
-              Arm == "Back",
-              ArrivalTime < analysis_time - hist_lag,
-              HistMissing != 1
-            ) %>%
-            dplyr::pull(RespHist)
+          if (hist_miss) {
+            ind_c <-
+              which(
+                dataset$Cohort == which_cohort &
+                  dataset$Arm == "Back" &
+                  dataset$ArrivalTime < analysis_time - hist_lag &
+                  !dataset$HistMissing
+              )
+          } else {
+            ind_c <-
+              which(
+                dataset$Cohort == which_cohort &
+                  dataset$Arm == "Back" &
+                  dataset$ArrivalTime < analysis_time - hist_lag
+              )
+          }
+
+          if (hist_miss) {
+            ind_e <-
+              which(
+                dataset$Cohort != which_cohort &
+                  dataset$Arm == "Back" &
+                  dataset$ArrivalTime < analysis_time - hist_lag &
+                  !dataset$HistMissing
+              )
+          } else {
+            ind_e <-
+              which(
+                dataset$Cohort != which_cohort &
+                  dataset$Arm == "Back" &
+                  dataset$ArrivalTime < analysis_time - hist_lag
+              )
+          }
+
+          resp_hist_cohort <- dataset$RespHist[ind_c]
+          resp_hist_external <- dataset$RespHist[ind_e]
 
           # compute responders from cohort
           suc_bio_c <- sum(resp_bio_cohort)
@@ -691,29 +827,38 @@ make_decision_trial <- function(res_list, which_cohort, Bayes_Sup = NULL, Bayes_
 
       if (interim) {
 
-        resp_bio <-
-          dataset %>%
-          dplyr::filter(
-            Cohort == which_cohort,
-            Arm == "Back",
-            ArrivalTime < analysis_time - bio_lag
-          ) %>%
-          dplyr::pull(RespBio)
+        ind <-
+          which(
+            dataset$Cohort == which_cohort &
+              dataset$Arm == "Back" &
+              dataset$ArrivalTime < analysis_time - bio_lag
+          )
+
+        resp_bio <- dataset$RespBio[ind]
 
         resp_bio_tot[3] <- sum(resp_bio)
         n_tot[3] <- length(resp_bio)
 
       } else {
 
-        resp_hist <-
-          dataset %>%
-          dplyr::filter(
-            Cohort == which_cohort,
-            Arm == "Back",
-            ArrivalTime < analysis_time - hist_lag # should be all
-          ) %>%
-          {if (hist_miss) dplyr::filter(., HistMissing != 1) else .} %>%
-          dplyr::pull(RespHist)
+        if (hist_miss) {
+          ind <-
+            which(
+              dataset$Cohort == which_cohort &
+                dataset$Arm == "Back" &
+                dataset$ArrivalTime < analysis_time - hist_lag &
+                !dataset$HistMissing
+            )
+        } else {
+          ind <-
+            which(
+              dataset$Cohort == which_cohort &
+                dataset$Arm == "Back" &
+                dataset$ArrivalTime < analysis_time - hist_lag
+            )
+        }
+
+        resp_hist <- dataset$RespHist[ind]
 
         resp_hist_tot[3] <- sum(resp_hist)
         n_tot[3] <- length(resp_hist)

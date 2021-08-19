@@ -8,6 +8,8 @@ simulate_trial(
   n_int,
   n_fin,
   cohorts_start = 1,
+  design_type,
+  arms_per_cohort,
   rr_comb,
   rr_mono = 1,
   rr_back = 1,
@@ -21,7 +23,7 @@ simulate_trial(
   prob_back_rr = c(1),
   prob_plac_rr = NULL,
   prob_rr_transform = prob_rr_transform,
-  stage_data = TRUE,
+  stage_data = FALSE,
   cohort_random = NULL,
   cohorts_max = 4,
   sr_drugs_pos = 1,
@@ -47,6 +49,13 @@ simulate_trial(
 \item{n_fin}{Sample size per cohort at final}
 
 \item{cohorts_start}{Number of cohorts to start the platform with}
+
+\item{design_type}{Either "combination" or "doses"}
+
+\item{arms_per_cohort}{An integer between 2 and 4.
+If 2, then only comb and SoC.
+If 3, then only Comb, Mono and SoC.
+If 4, then all four arms.}
 
 \item{rr_comb}{Response rates of combination therapies // high dose}
 
@@ -134,13 +143,6 @@ Another option is "concurrent" or "dynamic" or "cohort".}
 \item{time_trend}{Additive term by which response rates increase at every time step}
 
 \item{...}{Further arguments to be passed to decision function, such as decision making criteria}
-
-\item{design_type}{Either "combination" or "doses"}
-
-\item{arms_per_cohort}{An integer between 2 and 4.
-If 2, then only comb and SoC.
-If 3, then only Comb, Mono and SoC.
-If 4, then all four arms.}
 }
 \value{
 List containing: Responses and patients on experimental and control arm, total treatment successes and failures and final p-value
@@ -156,6 +158,10 @@ rr_comb <- c(0.20, 0.25, 0.3)
 prob_comb_rr <- c(0.4, 0.4, 0.2)
 rr_plac <- c(0.10, 0.12, 0.14)
 prob_plac_rr <- c(0.25, 0.5, 0.25)
+rr_back <- 1
+prob_back_rr <- 1
+rr_mono <- 1
+prob_mono_rr <- 1
 
 rr_transform <- list(function(x) {return(c(0.85*(1 - x), (1-0.85)*(1-x), (1-0.85)*x, 0.85*x))})
 prob_rr_transform <- 1
@@ -195,9 +201,9 @@ rr_comb = rr_comb, rr_mono = rr_mono, rr_back = rr_back, rr_plac = rr_plac,
 rr_transform = rr_transform, random = random, prob_comb_rr = prob_comb_rr,
 prob_mono_rr = prob_mono_rr, prob_back_rr = prob_back_rr, prob_plac_rr = prob_plac_rr,
 stage_data = stage_data, cohort_random = cohort_random, cohorts_max = cohorts_max,
-sr_drugs_pos = sr_drugs_pos, sharing_type = sharing_type,
+sr_drugs_pos = sr_drugs_pos, sharing_type = sharing_type,design_type = design_type,
 safety_prob = safety_prob, Bayes_Sup = Bayes_Sup, prob_rr_transform = prob_rr_transform,
-cohort_offset = cohort_offset, sr_first_pos = sr_first_pos,
+cohort_offset = cohort_offset, sr_first_pos = sr_first_pos, arms_per_cohort = arms_per_cohort,
 missing_prob = missing_prob, cohort_fixed = cohort_fixed, accrual_type = accrual_type,
 accrual_param = accrual_param, bio_lag = bio_lag, hist_lag = hist_lag,
 time_trend = time_trend, cohorts_start = cohorts_start, cohorts_sim = cohorts_sim

@@ -17,6 +17,11 @@ make_decision_trial(
   analysis_time,
   dataset,
   hist_miss = TRUE,
+  sharing_type,
+  design_type,
+  bio_lag,
+  hist_lag,
+  arms_per_cohort,
   ...
 )
 }
@@ -45,6 +50,16 @@ other functions in this package}
 \item{dataset}{Dataset to be used for analysis}
 
 \item{hist_miss}{Whether or not to exclude missing histology data}
+
+\item{sharing_type}{Type of Data Sharing to perform}
+
+\item{design_type}{Which design_type to use}
+
+\item{bio_lag}{Biomarker Lag}
+
+\item{hist_lag}{Histology Lag}
+
+\item{arms_per_cohort}{Number of arms per cohort}
 
 \item{...}{Further arguments inherited from simulate_trial}
 }

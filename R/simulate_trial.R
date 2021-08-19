@@ -110,6 +110,10 @@
 #' prob_comb_rr <- c(0.4, 0.4, 0.2)
 #' rr_plac <- c(0.10, 0.12, 0.14)
 #' prob_plac_rr <- c(0.25, 0.5, 0.25)
+#' rr_back <- 1
+#' prob_back_rr <- 1
+#' rr_mono <- 1
+#' prob_mono_rr <- 1
 #'
 #' rr_transform <- list(function(x) {return(c(0.85*(1 - x), (1-0.85)*(1-x), (1-0.85)*x, 0.85*x))})
 #' prob_rr_transform <- 1
@@ -128,7 +132,7 @@
 #' cohort_random <- 0.01
 #' cohort_offset <- 0
 #' cohorts_sim <- Inf
-#' random_type <- "risk_difference"
+#' random_type <- "absolute"
 #' missing_prob <- 0.2
 #' cohort_fixed <- 5
 #' bio_lag <- 12
@@ -149,19 +153,20 @@
 #' rr_transform = rr_transform, random = random, prob_comb_rr = prob_comb_rr,
 #' prob_mono_rr = prob_mono_rr, prob_back_rr = prob_back_rr, prob_plac_rr = prob_plac_rr,
 #' stage_data = stage_data, cohort_random = cohort_random, cohorts_max = cohorts_max,
-#' sr_drugs_pos = sr_drugs_pos, sharing_type = sharing_type,
+#' sr_drugs_pos = sr_drugs_pos, sharing_type = sharing_type,design_type = design_type,
 #' safety_prob = safety_prob, Bayes_Sup = Bayes_Sup, prob_rr_transform = prob_rr_transform,
-#' cohort_offset = cohort_offset, sr_first_pos = sr_first_pos,
+#' cohort_offset = cohort_offset, sr_first_pos = sr_first_pos, arms_per_cohort = arms_per_cohort,
 #' missing_prob = missing_prob, cohort_fixed = cohort_fixed, accrual_type = accrual_type,
 #' accrual_param = accrual_param, bio_lag = bio_lag, hist_lag = hist_lag,
 #' time_trend = time_trend, cohorts_start = cohorts_start, cohorts_sim = cohorts_sim
 #' )
 #'
 #' @export
-simulate_trial <- function(n_int, n_fin, cohorts_start = 1, rr_comb, rr_mono = 1, rr_back = 1, rr_plac,
+simulate_trial <- function(n_int, n_fin, cohorts_start = 1, design_type, arms_per_cohort,
+                           rr_comb, rr_mono = 1, rr_back = 1, rr_plac,
                            rr_transform, random_type = NULL, trial_struc = "all_plac", random = FALSE,
                            prob_comb_rr = NULL, prob_mono_rr = c(1), prob_back_rr = c(1),
-                           prob_plac_rr = NULL, prob_rr_transform = prob_rr_transform, stage_data = TRUE,
+                           prob_plac_rr = NULL, prob_rr_transform = prob_rr_transform, stage_data = FALSE,
                            cohort_random = NULL, cohorts_max = 4, sr_drugs_pos = 1,
                            sr_pats = cohorts_max * (n_fin + 3 * cohorts_max), sr_first_pos = FALSE,
                            cohort_offset = 0, sharing_type = "all", safety_prob = 0, cohorts_sim = Inf,
@@ -422,35 +427,31 @@ simulate_trial <- function(n_int, n_fin, cohorts_start = 1, rr_comb, rr_mono = 1
     for (k in 1:length(res_list)) {
       for (l in 1:arms_per_cohort) {
 
+        ind_bio_obs <-
+          which(
+            df$Cohort == k &
+              df$Arm == names(res_list[[k]]$Arms)[l] &
+              df$ArrivalTime < CurrentTime - bio_lag
+          )
+
         res_list[[k]]$Arms[[l]]$bio_observed <-
-          length(
-            df %>%
-              dplyr::filter(
-                Cohort == k,
-                Arm == names(res_list[[k]]$Arms)[l],
-                ArrivalTime < CurrentTime - bio_lag
-              ) %>%
-              dplyr::pull(RespBio)
+          length(df$RespBio[ind_bio_obs])
+
+        ind_hist_obs <-
+          which(
+            df$Cohort == k &
+              df$Arm == names(res_list[[k]]$Arms)[l] &
+              df$ArrivalTime < CurrentTime - hist_lag
           )
 
 
         res_list[[k]]$Arms[[l]]$hist_observed <-
-          length(
-            df %>%
-              dplyr::filter(
-                Cohort == k,
-                Arm == names(res_list[[k]]$Arms)[l],
-                ArrivalTime < CurrentTime - hist_lag
-              ) %>%
-              dplyr::pull(RespHist)
-          )
+          length(df$RespHist[ind_hist_obs])
       }
     }
 
     return(res_list)
   }
-
-  "%>%" <- dplyr::"%>%"
 
   ###### Initialization ######
 
@@ -659,6 +660,7 @@ simulate_trial <- function(n_int, n_fin, cohorts_start = 1, rr_comb, rr_mono = 1
               bio_lag          = bio_lag,
               hist_lag         = hist_lag,
               dataset          = df,
+              sharing_type     = sharing_type,
               ...
             )
 
@@ -695,6 +697,7 @@ simulate_trial <- function(n_int, n_fin, cohorts_start = 1, rr_comb, rr_mono = 1
               bio_lag          = bio_lag,
               hist_lag         = hist_lag,
               dataset          = df,
+              sharing_type     = sharing_type,
               ...
             )
 
@@ -846,7 +849,7 @@ simulate_trial <- function(n_int, n_fin, cohorts_start = 1, rr_comb, rr_mono = 1
   if (first_success > 0) {
 
     time_to_first_success <- first_success
-    pat_to_first_success <- nrow(df %>% dplyr::filter(ArrivalTime < first_success))
+    pat_to_first_success <- nrow(df[which(df$ArrivalTime < first_success),])
 
   } else {
 
@@ -880,9 +883,7 @@ simulate_trial <- function(n_int, n_fin, cohorts_start = 1, rr_comb, rr_mono = 1
     Time_First_Suc         = time_to_first_success,
     Pat_First_Suc          = pat_to_first_success,
     Pat_Arrival_Times      = pats_arrival_times,
-
-
-
+    Unenrolled_Pats        = length(pats_arrival_times) - sum(sapply(res_list, function(x) x$Meta$pat_enrolled)),
     TP                     = cp,
     FP                     = fp,
     TN                     = cn,
@@ -901,6 +902,8 @@ simulate_trial <- function(n_int, n_fin, cohorts_start = 1, rr_comb, rr_mono = 1
 
   if (stage_data) {
     ret <- list(Trial_Overview = ret, Stage_Data = res_list, Pat_Data = df)
+  } else {
+    ret <- list(Trial_Overview = ret)
   }
 
   # Whatif Analysis
@@ -921,6 +924,7 @@ simulate_trial <- function(n_int, n_fin, cohorts_start = 1, rr_comb, rr_mono = 1
         hist_lag         = hist_lag,
         dataset          = df,
         hist_missing     = FALSE,
+        sharing_type     = sharing_type,
         ...
       )
 

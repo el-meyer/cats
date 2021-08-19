@@ -107,9 +107,9 @@ trial_ocs <- function(iter, coresnum = 1, save = FALSE, path = NULL, filename = 
     ##### Run parallel simulations #####
 
     # run in parallel
-    trial_results <- foreach::foreach(i = 1:iter, .packages = "CohortPlat", .export = export) %dopar% {
+    trial_results <- foreach::foreach(i = 1:iter, .packages = "Cats", .export = export) %dopar% {
       # first call program function
-      trial_res <- do.call(simulate_trial, arguments)
+      trial_res <- do.call(Cats::simulate_trial, arguments)
       # Now save individual trial results
       trial_res
     }
@@ -150,9 +150,14 @@ trial_ocs <- function(iter, coresnum = 1, save = FALSE, path = NULL, filename = 
     Avg_Cohort_N               = mean(sapply(trial_results, function(x) x$Trial_Overview$Final_N_Cohort_Trial)),
     Avg_Time                   = mean(sapply(trial_results, function(x) x$Trial_Overview$Total_Time)),
     Avg_Time_First_Suc         = mean(sapply(trial_results, function(x) x$Trial_Overview$Time_First_Suc), na.rm = TRUE),
-    Avg_Int_Go                 = mean(sapply(trial_results, function(x) x$Trial_Overview$Int_GO_Trial)),
-    Avg_Int_Stop               = mean(sapply(trial_results, function(x) x$Trial_Overview$Int_STOP_Trial)),
-    Avg_Rand_Stop              = mean(sapply(trial_results, function(x) x$Trial_Overview$Safety_STOP_Trial)),
+
+    Avg_Int_Go                 = sum(sapply(trial_results, function(x) x$Trial_Overview$Int_GO)) /
+                                  sum(sapply(trial_results, function(x) x$Trial_Overview$N_Cohorts)),
+    Avg_Int_Stop               = sum(sapply(trial_results, function(x) x$Trial_Overview$Int_STOP)) /
+      sum(sapply(trial_results, function(x) x$Trial_Overview$N_Cohorts)),
+    Avg_Rand_Stop              = sum(sapply(trial_results, function(x) x$Trial_Overview$Safety_STOP)) /
+      sum(sapply(trial_results, function(x) x$Trial_Overview$N_Cohorts)),
+
     Avg_TP                     = mean(sapply(trial_results, function(x) x$Trial_Overview$TP)),
     Avg_FP                     = mean(sapply(trial_results, function(x) x$Trial_Overview$FP)),
     Avg_TN                     = mean(sapply(trial_results, function(x) x$Trial_Overview$TN)),
