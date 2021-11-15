@@ -180,7 +180,7 @@ stage_data <- TRUE
 cohort_random <- 0.01
 cohort_offset <- 0
 cohorts_sim <- Inf
-random_type <- "risk_difference"
+random_type <- "absolute"
 missing_prob <- 0.2
 cohort_fixed <- 5
 bio_lag <- 12
