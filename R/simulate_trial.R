@@ -1,32 +1,18 @@
 #' Simulates the cohort trial.
 #'
-#' @param n_int                Sample size per cohort to conduct interim analysis
-#'
 #' @param n_fin                Sample size per cohort at final
 #'
 #' @param cohorts_start        Number of cohorts to start the platform with
 #'
-#' @param design_type          Either "combination" or "doses"
+#' @param rr_comb1             Response rates of treatment, histology endpoint 1
 #'
-#' @param arms_per_cohort      An integer between 2 and 4.
-#'                             If 2, then only comb and SoC.
-#'                             If 3, then only Comb, Mono and SoC.
-#'                             If 4, then all four arms.
+#' @param rr_comb2             Response rates of treatment, histology endpoint 2
 #'
-#' @param rr_comb              Response rates of combination therapies // high dose
+#' @param rr_plac1             Response rate of the SoC, histology endpoint 1
 #'
-#' @param rr_mono              Response rate of mono therapies // medium dose
+#' @param rr_plac2             Response rate of the SoC, histology endpoint 2
 #'
-#' @param rr_back              Response rates of backbone arms  // low dose
-#'
-#' @param rr_plac              Response rate of the placebo // SoC
-#'
-#' @param rr_transform         Function transforming all the above response rates to a vector of four
-#'                             probabilities for the multinomial simulation
-#'                             First element is probability of both failures.
-#'                             Second element is probability of biomarker success and histology failure.
-#'                             Third element is probability of biomarker failure and histology success.
-#'                             Fourth element is probability of both success.
+#' @param correlation          Correlation between histology endpoints
 #'
 #' @param random               Should the response rates of the arms be randomly drawn from rr_exp? Default is FALSE.
 #'
@@ -49,15 +35,13 @@
 #'                             If rr_comb > 1 -> synergistic, if rr_comb = 1 -> additive. If rr_comb < 1 -> antagonistic.
 #'                             Default is "NULL".
 #'
-#' @param prob_comb_rr         If random == TRUE, what are the probabilities with which the elements of rr_comb should be drawn?
+#' @param prob_comb1_rr        If random == TRUE, what are the probabilities with which the elements of rr_comb1 should be drawn?
 #'
-#' @param prob_mono_rr         If random == TRUE, what are the probabilities with which the elements of rr_mono should be drawn?
+#' @param prob_comb2_rr        If random == TRUE, what are the probabilities with which the elements of rr_comb2 should be drawn?
 #'
-#' @param prob_back_rr         If random == TRUE, what are the probabilities with which the elements of rr_back should be drawn?
+#' @param prob_plac1_rr        If random == TRUE, what are the probabilities with which the elements of rr_plac1 should be drawn?
 #'
-#' @param prob_plac_rr         If random == TRUE, what are the probabilities with which the elements of rr_plac should be drawn?
-#'
-#' @param prob_rr_transform    If random == TRUE, what are the probabilities with which the elements of rr_transform should be drawn?
+#' @param prob_plac2_rr        If random == TRUE, what are the probabilities with which the elements of rr_plac2 should be drawn?
 #'
 #' @param stage_data           Should individual stage data be passed along? Default is TRUE
 #'
@@ -92,11 +76,13 @@
 #'
 #' @param accrual_param        Parameter used for patient accrual
 #'
-#' @param bio_lag              Time until biomarker outcome is observed
+#' @param analysis_times       Vector of information fractions needed for first interim, second interim and final
 #'
 #' @param hist_lag             Time until histology outcome is observed
 #'
 #' @param time_trend           Additive term by which response rates increase at every time step
+#'
+#' @param composite            Rule for deriving the composite endpoint. By default "or", otherwise "and"
 #'
 #' @param ...                  Further arguments to be passed to decision function, such as decision making criteria
 #'
@@ -106,27 +92,23 @@
 #'
 #' random <- TRUE
 #'
-#' rr_comb <- c(0.20, 0.25, 0.3)
-#' prob_comb_rr <- c(0.4, 0.4, 0.2)
-#' rr_plac <- c(0.10, 0.12, 0.14)
-#' prob_plac_rr <- c(0.25, 0.5, 0.25)
-#' rr_back <- 1
-#' prob_back_rr <- 1
-#' rr_mono <- 1
-#' prob_mono_rr <- 1
+#' rr_comb1 <- 0.25
+#' prob_comb1_rr <- 1
+#' rr_comb2 <- 0.20
+#' prob_comb2_rr <- 1
+#' rr_plac1 <- 0.10
+#' prob_plac1_rr <- 1
+#' rr_plac2 <- 0.10
+#' prob_plac2_rr <- 1
 #'
-#' rr_transform <- list(function(x) {return(c(0.85*(1 - x), (1-0.85)*(1-x), (1-0.85)*x, 0.85*x))})
-#' prob_rr_transform <- 1
+#' correlation <- 0.8
 #'
 #' cohorts_start <- 2
-#' design_type <- "combination"
-#' arms_per_cohort <- 2
 #' cohorts_max <- 5
 #' safety_prob <- 0
 #' sharing_type <- "concurrent"
 #' sr_drugs_pos <- 5
 #' sr_first_pos <- FALSE
-#' n_int <- 50
 #' n_fin <- 100
 #' stage_data <- TRUE
 #' cohort_random <- 0.01
@@ -135,43 +117,53 @@
 #' random_type <- "absolute"
 #' missing_prob <- 0.2
 #' cohort_fixed <- 5
-#' bio_lag <- 12
 #' hist_lag <- 48
+#' analysis_times <- c(0.5, 0.75, 1)
 #' accrual_type <- "fixed"
 #' accrual_param <- 9
 #' time_trend <- 0.001
+#' composite <- "or"
 #'
-#' # Vergleich Combo vs Plac
-#' Bayes_Sup1 <- matrix(nrow = 1, ncol = 2)
-#' Bayes_Sup1[1,] <- c(0.00, 0.95)
-#' Bayes_Sup <- list(list(Bayes_Sup1),
-#'                   list(Bayes_Sup1))
+#' # Comparison IA1
+#' Bayes_Sup11 <- matrix(nrow = 2, ncol = 2)
+#' Bayes_Sup11[1,] <- c(0.00, 0.95)
+#' Bayes_Sup11[2,] <- c(0.10, 0.80)
+#' # Comparison IA2
+#' Bayes_Sup12 <- matrix(nrow = 2, ncol = 2)
+#' Bayes_Sup12[1,] <- c(0.00, 0.95)
+#' Bayes_Sup12[2,] <- c(0.10, 0.80)
+#' # Comparison IA3
+#' Bayes_Sup13 <- matrix(nrow = 2, ncol = 2)
+#' Bayes_Sup13[1,] <- c(0.00, 0.95)
+#' Bayes_Sup13[2,] <- c(0.10, 0.80)
+#'
+#' Bayes_Sup1 <- Bayes_Sup2 <- list(list(Bayes_Sup11), list(Bayes_Sup12), list(Bayes_Sup13))
 #'
 #' a <- simulate_trial(
-#' n_int = n_int, n_fin = n_fin, random_type = random_type,
-#' rr_comb = rr_comb, rr_mono = rr_mono, rr_back = rr_back, rr_plac = rr_plac,
-#' rr_transform = rr_transform, random = random, prob_comb_rr = prob_comb_rr,
-#' prob_mono_rr = prob_mono_rr, prob_back_rr = prob_back_rr, prob_plac_rr = prob_plac_rr,
+#' n_fin = n_fin, random_type = random_type, composite = composite,
+#' rr_comb1 = rr_comb1, rr_comb2 = rr_comb2, rr_plac1 = rr_plac1, rr_plac2 = rr_plac2,
+#' random = random, prob_comb1_rr = prob_comb1_rr, prob_comb2_rr = prob_comb2_rr,
+#' prob_plac1_rr = prob_plac1_rr, prob_plac2_rr = prob_plac2_rr,
 #' stage_data = stage_data, cohort_random = cohort_random, cohorts_max = cohorts_max,
-#' sr_drugs_pos = sr_drugs_pos, sharing_type = sharing_type,design_type = design_type,
-#' safety_prob = safety_prob, Bayes_Sup = Bayes_Sup, prob_rr_transform = prob_rr_transform,
-#' cohort_offset = cohort_offset, sr_first_pos = sr_first_pos, arms_per_cohort = arms_per_cohort,
+#' sr_drugs_pos = sr_drugs_pos, sharing_type = sharing_type,
+#' safety_prob = safety_prob, Bayes_Sup1 = Bayes_Sup1, Bayes_Sup2 = Bayes_Sup2,
+#' cohort_offset = cohort_offset, sr_first_pos = sr_first_pos,
 #' missing_prob = missing_prob, cohort_fixed = cohort_fixed, accrual_type = accrual_type,
-#' accrual_param = accrual_param, bio_lag = bio_lag, hist_lag = hist_lag,
+#' accrual_param = accrual_param, hist_lag = hist_lag, analysis_times = analysis_times,
 #' time_trend = time_trend, cohorts_start = cohorts_start, cohorts_sim = cohorts_sim
 #' )
 #'
 #' @export
-simulate_trial <- function(n_int, n_fin, cohorts_start = 1, design_type, arms_per_cohort,
-                           rr_comb, rr_mono = 1, rr_back = 1, rr_plac,
+simulate_trial <- function(n_fin, cohorts_start = 1, composite = "or",
+                           rr_comb1, rr_plac1, rr_comb2, rr_plac2,
                            rr_transform, random_type = NULL, trial_struc = "all_plac", random = FALSE,
-                           prob_comb_rr = NULL, prob_mono_rr = c(1), prob_back_rr = c(1),
-                           prob_plac_rr = NULL, prob_rr_transform = prob_rr_transform, stage_data = FALSE,
+                           prob_comb1_rr = NULL, prob_plac1_rr = NULL, prob_comb2_rr = NULL,
+                           prob_plac2_rr = NULL, stage_data = FALSE,
                            cohort_random = NULL, cohorts_max = 4, sr_drugs_pos = 1,
                            sr_pats = cohorts_max * (n_fin + 3 * cohorts_max), sr_first_pos = FALSE,
                            cohort_offset = 0, sharing_type = "all", safety_prob = 0, cohorts_sim = Inf,
                            missing_prob = 0, cohort_fixed = NULL, accrual_type = "fixed", accrual_param = 9,
-                           bio_lag = 12, hist_lag = 48, time_trend = time_trend, ...) {
+                           hist_lag = 48, analysis_times = c(0.5, 0.75, 1), time_trend = time_trend, ...) {
 
   ##### Helper Functions #####
 
@@ -181,7 +173,9 @@ simulate_trial <- function(n_int, n_fin, cohorts_start = 1, design_type, arms_pe
 
   # helper function check which cohort is left
   coh_left_check <- function(x) {
-    if (x$Meta$decision[1] %in% c("none", "PROMISING", "CONTINUE") & x$Meta$decision[2] == "none") {
+    if (x$Meta$decision[1] %in% c("none", "CONTINUE")
+        & x$Meta$decision[2] %in% c("none", "CONTINUE")
+        & x$Meta$decision[3] == "none") {
       ret <- TRUE
     } else {
       ret <- FALSE
@@ -191,7 +185,10 @@ simulate_trial <- function(n_int, n_fin, cohorts_start = 1, design_type, arms_pe
 
   # helper function check which cohort still needs to enrol patients
   coh_left_enrol_check <- function(x) {
-    if (x$Meta$decision[1] %in% c("none", "PROMISING", "CONTINUE") & x$Meta$decision[2] == "none") {
+    if (x$Meta$decision[1] %in% c("none", "CONTINUE")
+        & x$Meta$decision[2] %in% c("none", "CONTINUE")
+        & x$Meta$decision[3] == "none") {
+
       if (x$Meta$pat_enrolled < n_fin) {
         ret <- TRUE
       } else {
@@ -205,15 +202,16 @@ simulate_trial <- function(n_int, n_fin, cohorts_start = 1, design_type, arms_pe
 
 
   # helper function to create initial cohort
-  create_cohort_initial <- function(cohorts_start, design_type, arms_per_cohort,
-                                    rr_comb_vec, rr_mono_vec, rr_back_vec, rr_plac_vec) {
+  create_cohort_initial <- function(cohorts_start, rr_comb1_vec, rr_comb2_vec, rr_plac1_vec, rr_plac2_vec) {
 
     res_list <-
       rep(
         list(
           list(
             Meta = list(
-              decision = rep("none", 2),
+              decision = rep("none", 3),
+              decision_hist1 = rep("none", 3),
+              decision_hist2 = rep("none", 3),
               start_n = 0,
               start_time = 0,
               pat_enrolled = 0
@@ -222,33 +220,24 @@ simulate_trial <- function(n_int, n_fin, cohorts_start = 1, design_type, arms_pe
               list(
                 list(
                   rr = NULL,
-                  bio_observed = 0,
                   hist_observed = 0
                 )
               ),
-              arms_per_cohort
+              2
             )
           )
         ),
         cohorts_start
       )
 
-    arm_names <- c("Comb", "Mono", "Back", "Plac")[c(1:(arms_per_cohort - 1), 4)]
+    arm_names <- c("Comb", "Plac")
 
     for (i in 1:cohorts_start) {
       names(res_list)[i] <- paste0("Cohort", i)
       names(res_list[[i]]$Arms) <- arm_names
 
-      res_list[[i]]$Arms$Comb$rr <- rr_comb_vec[i]
-      res_list[[i]]$Arms$Plac$rr <- rr_plac_vec[i]
-
-      if (arms_per_cohort > 2) {
-        res_list[[i]]$Arms$Mono$rr <- rr_mono_vec[i]
-      }
-
-      if (arms_per_cohort > 3) {
-        res_list[[i]]$Arms$Back$rr <- rr_back_vec[i]
-      }
+      res_list[[i]]$Arms$Comb$rr <- matrix(c(rr_comb1_vec[i], rr_comb2_vec[i]), ncol = 2)
+      res_list[[i]]$Arms$Plac$rr <- matrix(c(rr_plac1_vec[i], rr_plac2_vec[i]), ncol = 2)
     }
 
     return(res_list)
@@ -256,14 +245,15 @@ simulate_trial <- function(n_int, n_fin, cohorts_start = 1, design_type, arms_pe
   }
 
   # helper function to create new cohort
-  create_cohort_new <- function(res_list, plat_time, design_type, arms_per_cohort,
-                                rr_comb_vec, rr_mono_vec, rr_back_vec, rr_plac_vec) {
+  create_cohort_new <- function(res_list, plat_time, rr_comb1_vec, rr_comb2_vec, rr_plac1_vec, rr_plac2_vec) {
 
     new_list <-
         list(
           list(
             Meta = list(
-              decision = rep("none", 2),
+              decision = rep("none", 3),
+              decision_hist1 = rep("none", 3),
+              decision_hsit2 = rep("none", 3),
               start_n = sum(sapply(res_list, function(x) x$Meta$pat_enrolled), na.rm = T),
               start_time = plat_time,
               pat_enrolled = 0
@@ -272,63 +262,58 @@ simulate_trial <- function(n_int, n_fin, cohorts_start = 1, design_type, arms_pe
               list(
                 list(
                   rr = 0,
-                  bio_observed = 0,
                   hist_observed = 0
                 )
               ),
-              arms_per_cohort
+              2
             )
           )
         )
 
-    arm_names <- c("Comb", "Mono", "Back", "Plac")[c(1:(arms_per_cohort - 1), 4)]
+    arm_names <- c("Comb", "Plac")
 
       names(new_list)[[1]] <- paste0("Cohort", length(res_list) + 1)
       names(new_list[[1]]$Arms) <- arm_names
 
       new_list[[1]]$Arms$Comb$rr <-
-        pmin(
-          seq(
-           from = rr_comb_vec[length(res_list) + 1],
-           by = time_trend,
-           length.out = plat_time)
-          ,
-          1
-        )
-       new_list[[1]]$Arms$Plac$rr <-
-        pmin(
-          seq(
-            from = rr_plac_vec[length(res_list) + 1],
-            by = time_trend,
-            length.out = plat_time)
-          ,
-          1
-         )
-
-      if (arms_per_cohort > 2) {
-        new_list[[1]]$Arms$Mono$rr <-
+        cbind(
           pmin(
             seq(
-              from = rr_mono_vec[length(res_list) + 1],
+              from = rr_comb1_vec[length(res_list) + 1],
               by = time_trend,
-              length.out = plat_time
-            ),
+              length.out = plat_time)
+            ,
             1
-            )
-      }
-
-      if (arms_per_cohort > 3) {
-        new_list[[1]]$Arms$Back$rr <-
+          ),
           pmin(
             seq(
-              from = rr_back_vec[length(res_list) + 1],
+              from = rr_comb2_vec[length(res_list) + 1],
               by = time_trend,
-              length.out = plat_time
-              )
+              length.out = plat_time)
             ,
             1
           )
-      }
+        )
+
+      new_list[[1]]$Arms$Plac$rr <-
+        cbind(
+          pmin(
+            seq(
+              from = rr_plac1_vec[length(res_list) + 1],
+              by = time_trend,
+              length.out = plat_time)
+            ,
+            1
+          ),
+          pmin(
+            seq(
+              from = rr_plac2_vec[length(res_list) + 1],
+              by = time_trend,
+              length.out = plat_time)
+            ,
+            1
+          )
+        )
 
     res_list <- c(res_list, new_list)
 
@@ -351,13 +336,13 @@ simulate_trial <- function(n_int, n_fin, cohorts_start = 1, design_type, arms_pe
     } else {
 
       # get names of arms
-      arm_names <- c("Comb", "Mono", "Back", "Plac")[c(1:(arms_per_cohort - 1), 4)]
+      arm_names <- c("Comb", "Plac")
 
       # create randomization list
       # first column refers to cohort, second to arm
-      rand_list <- matrix(nrow = length(cohorts_left) * arms_per_cohort, ncol = 3)
+      rand_list <- matrix(nrow = length(cohorts_left) * 2, ncol = 3)
 
-      rand_list[, 1] <- sample(rep(cohorts_left, times = arms_per_cohort))
+      rand_list[, 1] <- sample(rep(cohorts_left, times = 2))
 
       # need to go and for each cohort do a random assignment
       for (i in cohorts_left) {
@@ -375,7 +360,7 @@ simulate_trial <- function(n_int, n_fin, cohorts_start = 1, design_type, arms_pe
   # helper function to check whether platform stopping rules are reached
   is_sr_reached <- function(res_list, sr_drugs_pos, sr_pats, expected) {
     ret <- 0
-    positives <- sum(substring(sapply(res_list, function(x) x$Meta$decision[2]), 1, 2) == "GO")
+    positives <- sum(substring(sapply(res_list, function(x) x$Meta$decision[3]), 1, 2) == "GO")
     if (positives >= sr_drugs_pos) {
       ret <- 1
     }
@@ -394,48 +379,56 @@ simulate_trial <- function(n_int, n_fin, cohorts_start = 1, design_type, arms_pe
       for (j in names(res_list[[i]]$Arms)) {
         # Just add time trend
         # Make sure not larger than 1
-        res_list[[i]]$Arms[[j]]$rr <- pmin(c(res_list[[i]]$Arms[[j]]$rr, tail(res_list[[i]]$Arms[[j]]$rr, 1) + time_trend), 1)
+        res_list[[i]]$Arms[[j]]$rr <-
+          rbind(
+            res_list[[i]]$Arms[[j]]$rr,
+            pmin(tail(res_list[[i]]$Arms[[j]]$rr, 1) + time_trend, 1)
+          )
       }
     }
     return(res_list)
   }
 
 
-  # Helper function to check whether interim milestone was reached
-  check_int_milestone <- function(y, n_int) {
+  # Helper function to check whether interim milestone 1 was reached
+  check_int1_milestone <- function(y, time) {
 
-    n <- sum(sapply(y$Arms, function(x) x$bio_observed)) >= n_int
+    n <- sum(sapply(y$Arms, function(x) x$hist_observed))/n_fin >= time
+    # check if no first interim has been conducted yet
     new <- y$Meta$decision[1] == "none"
 
     return(all(n, new))
 
   }
 
-  # Helper function to check whether final milestone was reached
-  check_fin_milestone <- function(y, n_fin) {
+  # Helper function to check whether interim milestone 2 was reached
+  check_int2_milestone <- function(y, time) {
 
-    n <- sum(sapply(y$Arms, function(x) x$hist_observed)) >= n_fin
-    new <- y$Meta$decision[2] == "none"
+    n <- sum(sapply(y$Arms, function(x) x$hist_observed))/n_fin >= time
+    # check whether first interim was conducted, but second was not
+    new <- (y$Meta$decision[2] == "none") & (y$Meta$decision[1] != "none")
 
     return(all(n, new))
 
   }
 
+  # Helper function to check whether final milestone was reached
+  check_fin_milestone <- function(y, time) {
+
+    n <- sum(sapply(y$Arms, function(x) x$hist_observed))/n_fin >= time
+    # check whether first and second interim were conducted, but final was not
+    new <- (y$Meta$decision[3] == "none") & (y$Meta$decision[1] != "none") & (y$Meta$decision[2] != "none")
+
+    return(all(n, new))
+
+  }
+
+
   # Helper function to observe outcomes
-  observe_outcomes <- function(res_list, CurrentTime, bio_lag, hist_lag) {
+  observe_outcomes <- function(res_list, CurrentTime, hist_lag) {
 
     for (k in 1:length(res_list)) {
-      for (l in 1:arms_per_cohort) {
-
-        ind_bio_obs <-
-          which(
-            df$Cohort == k &
-              df$Arm == names(res_list[[k]]$Arms)[l] &
-              df$ArrivalTime < CurrentTime - bio_lag
-          )
-
-        res_list[[k]]$Arms[[l]]$bio_observed <-
-          length(df$RespBio[ind_bio_obs])
+      for (l in 1:2) {
 
         ind_hist_obs <-
           which(
@@ -446,12 +439,77 @@ simulate_trial <- function(n_int, n_fin, cohorts_start = 1, design_type, arms_pe
 
 
         res_list[[k]]$Arms[[l]]$hist_observed <-
-          length(df$RespHist[ind_hist_obs])
+          length(df$RespHist1[ind_hist_obs])
       }
     }
 
     return(res_list)
   }
+
+  # Helper function to create multinomial distribution
+  fun_multnom <- function(rr_short, rr_long, correlation) {
+
+  prob11 <-
+    as.numeric(
+      mvtnorm::pmvnorm(
+        upper = c(qnorm(rr_short), qnorm(rr_long)),
+        corr = matrix(
+          c(1, correlation,
+            correlation, 1),
+          nrow = 2, ncol = 2
+        )
+      )
+    )
+
+  prob10 <-
+    as.numeric(
+      mvtnorm::pmvnorm(
+        lower = c(qnorm(rr_short), -Inf),
+        upper = c(Inf, qnorm(rr_long)),
+        corr = matrix(
+          c(1, correlation,
+            correlation, 1),
+          nrow = 2, ncol = 2
+        )
+      )
+    )
+
+  prob01 <-
+    as.numeric(
+      mvtnorm::pmvnorm(
+        lower = c(-Inf, qnorm(rr_long)),
+        upper = c(qnorm(rr_short), Inf),
+        corr = matrix(
+          c(1, correlation,
+            correlation, 1),
+          nrow = 2, ncol = 2
+        )
+      )
+    )
+
+
+  prob00 <-
+    as.numeric(mvtnorm::pmvnorm(
+      lower = c(qnorm(rr_short), qnorm(rr_long)),
+      upper = c(Inf, Inf),
+      corr = matrix(
+        c(1, correlation,
+          correlation, 1),
+        nrow = 2, ncol = 2
+      )
+    )
+    )
+
+  return(
+    c(
+      p00 = prob00,
+      p10 = prob10,
+      p01 = prob01,
+      p11 = prob11
+    )
+  )
+
+}
 
   ###### Initialization ######
 
@@ -462,60 +520,54 @@ simulate_trial <- function(n_int, n_fin, cohorts_start = 1, design_type, arms_pe
   if (random) {
     if (random_type == "absolute") {
       # Sample response rates for all possible arms
-      rr_comb_vec <- sample.vec(rr_comb, cohorts_max, prob = prob_comb_rr, replace = TRUE)
-      rr_back_vec <- sample.vec(rr_back, cohorts_max, prob = prob_back_rr, replace = TRUE)
-      rr_mono_vec <- sample.vec(rr_mono, cohorts_max, prob = prob_mono_rr, replace = TRUE)
-      rr_plac_vec <- sample.vec(rr_plac, cohorts_max, prob = prob_plac_rr, replace = TRUE)
+      rr_comb1_vec <- sample.vec(rr_comb1, cohorts_max, prob = prob_comb1_rr, replace = TRUE)
+      rr_comb2_vec <- sample.vec(rr_comb2, cohorts_max, prob = prob_comb2_rr, replace = TRUE)
+      rr_plac1_vec <- sample.vec(rr_plac1, cohorts_max, prob = prob_plac1_rr, replace = TRUE)
+      rr_plac2_vec <- sample.vec(rr_plac2, cohorts_max, prob = prob_plac2_rr, replace = TRUE)
     }
 
     if (random_type == "risk_difference") {
-      rr_plac_vec <- sample.vec(rr_plac, cohorts_max, prob = prob_plac_rr, replace = TRUE)
-      back_add    <- sample.vec(rr_back, cohorts_max, prob = prob_back_rr, replace = TRUE)
-      mono_add    <- sample.vec(rr_mono, cohorts_max, prob = prob_mono_rr, replace = TRUE)
-      comb_add    <- sample.vec(rr_comb, cohorts_max, prob = prob_comb_rr, replace = TRUE)
-      rr_back_vec <- pmin(rr_plac_vec + back_add, 1)
-      rr_mono_vec <- pmin(rr_plac_vec + mono_add, 1)
-      rr_comb_vec <- pmin(rr_plac_vec + comb_add, 1)
+      rr_plac1_vec <- sample.vec(rr_plac1, cohorts_max, prob = prob_plac1_rr, replace = TRUE)
+      rr_plac2_vec <- sample.vec(rr_plac2, cohorts_max, prob = prob_plac2_rr, replace = TRUE)
+      comb1_add    <- sample.vec(rr_comb1, cohorts_max, prob = prob_comb1_rr, replace = TRUE)
+      comb2_add    <- sample.vec(rr_comb2, cohorts_max, prob = prob_comb2_rr, replace = TRUE)
+      rr_comb1_vec <- pmin(rr_plac1_vec + comb1_add, 1)
+      rr_comb2_vec <- pmin(rr_plac2_vec + comb2_add, 1)
     }
 
     if (random_type == "risk_ratio") {
-      rr_plac_vec <- sample.vec(rr_plac, cohorts_max, prob = prob_plac_rr, replace = TRUE)
-      back_add    <- sample.vec(rr_back, cohorts_max, prob = prob_back_rr, replace = TRUE)
-      mono_add    <- sample.vec(rr_mono, cohorts_max, prob = prob_mono_rr, replace = TRUE)
-      comb_add    <- sample.vec(rr_comb, cohorts_max, prob = prob_comb_rr, replace = TRUE)
-      rr_back_vec <- pmin(rr_plac_vec * back_add, 1)
-      rr_mono_vec <- pmin(rr_plac_vec * mono_add, 1)
-      rr_comb_vec <- pmin(rr_plac_vec * comb_add, 1)
+      rr_plac1_vec <- sample.vec(rr_plac1, cohorts_max, prob = prob_plac1_rr, replace = TRUE)
+      rr_plac2_vec <- sample.vec(rr_plac2, cohorts_max, prob = prob_plac2_rr, replace = TRUE)
+      comb1_add    <- sample.vec(rr_comb1, cohorts_max, prob = prob_comb1_rr, replace = TRUE)
+      comb2_add    <- sample.vec(rr_comb2, cohorts_max, prob = prob_comb2_rr, replace = TRUE)
+      rr_comb1_vec <- pmin(rr_plac1_vec * comb1_add, 1)
+      rr_comb2_vec <- pmin(rr_plac2_vec * comb2_add, 1)
     }
 
     if (random_type == "odds_ratios") {
       odds_to_rr <- function(x) {x/(1+x)}
       rr_to_odds <- function(x) {x/(1-x)}
       # get placebo response rate
-      rr_plac_vec <- sample.vec(rr_plac, cohorts_max, prob = prob_plac_rr, replace = TRUE)
+      rr_plac1_vec <- sample.vec(rr_plac1, cohorts_max, prob = prob_plac1_rr, replace = TRUE)
+      rr_plac2_vec <- sample.vec(rr_plac2, cohorts_max, prob = prob_plac2_rr, replace = TRUE)
       # get back, mono, comb odds ratios
-      back_add_or <- sample.vec(rr_back, cohorts_max, prob = prob_back_rr, replace = TRUE)
-      mono_add_or <- sample.vec(rr_mono, cohorts_max, prob = prob_mono_rr, replace = TRUE)
-      comb_add_or <- sample.vec(rr_comb, cohorts_max, prob = prob_comb_rr, replace = TRUE)
+      comb1_add_or <- sample.vec(rr_comb1, cohorts_max, prob = prob_comb1_rr, replace = TRUE)
+      comb2_add_or <- sample.vec(rr_comb2, cohorts_max, prob = prob_comb2_rr, replace = TRUE)
       # compute mono and back odds
-      odds_plac_vec <- rr_to_odds(rr_plac_vec)
-      odds_back_vec <- odds_plac_vec * back_add_or
-      odds_mono_vec <- odds_plac_vec * mono_add_or
-      odds_comb_vec <- odds_plac_vec * comb_add_or
+      odds_plac1_vec <- rr_to_odds(rr_plac1_vec)
+      odds_plac2_vec <- rr_to_odds(rr_plac2_vec)
+      odds_comb1_vec <- odds_plac1_vec * comb1_add_or
+      odds_comb2_vec <- odds_plac2_vec * comb2_add_or
       # transfer odds to rr
-      rr_back_vec <- odds_to_rr(odds_back_vec)
-      rr_mono_vec <- odds_to_rr(odds_mono_vec)
-      rr_comb_vec <- odds_to_rr(odds_comb_vec)
+      rr_comb1_vec <- odds_to_rr(odds_comb1_vec)
+      rr_comb2_vec <- odds_to_rr(odds_comb2_vec)
     }
 
-    rr_transform_vec <- rr_transform[sample(1:length(rr_transform), cohorts_max, prob = prob_rr_transform, replace = TRUE)]
-
   } else {
-    rr_comb_vec <- rep(rr_comb, cohorts_max)
-    rr_back_vec <- rep(rr_back, cohorts_max)
-    rr_mono_vec <- rep(rr_mono, cohorts_max)
-    rr_plac_vec <- rep(rr_plac, cohorts_max)
-    rr_transform_vec <- rr_transform[sample(1:length(rr_transform), cohorts_max, prob = 1, replace = TRUE)]
+    rr_comb1_vec <- rep(rr_comb1, cohorts_max)
+    rr_comb2_vec <- rep(rr_comb2, cohorts_max)
+    rr_plac1_vec <- rep(rr_plac1, cohorts_max)
+    rr_plac2_vec <- rep(rr_plac2, cohorts_max)
   }
 
 
@@ -529,8 +581,7 @@ simulate_trial <- function(n_int, n_fin, cohorts_start = 1, design_type, arms_pe
   last_cohort_time <- 0
 
   # Initialize res_list
-  res_list <- create_cohort_initial(cohorts_start, design_type, arms_per_cohort,
-                                    rr_comb_vec, rr_mono_vec, rr_back_vec, rr_plac_vec)
+  res_list <- create_cohort_initial(cohorts_start, rr_comb1_vec, rr_comb2_vec, rr_plac1_vec, rr_plac2_vec)
 
   Total_N_Vector <- NULL
 
@@ -542,7 +593,7 @@ simulate_trial <- function(n_int, n_fin, cohorts_start = 1, design_type, arms_pe
   pats_arrival_times <- NULL
 
   # Initialize empty data frame
-  cols <- c("PatID", "ArrivalTime", "Cohort", "Arm", "RespBio", "RespHist", "HistMissing")
+  cols <- c("PatID", "ArrivalTime", "Cohort", "Arm", "RespHist1", "RespHist2", "HistMissing")
   df <- matrix(nrow = 0, ncol = length(cols))
   colnames(df) <- cols
   df <- as.data.frame(df)
@@ -604,20 +655,21 @@ simulate_trial <- function(n_int, n_fin, cohorts_start = 1, design_type, arms_pe
         }
 
         # Simulate multinomial outcome of patient
-        f <- match.fun(rr_transform_vec[[new_pat_cohort]])
-        new_probs <- f(res_list[[new_pat_cohort]]$Arms[[new_pat_arm]]$rr[plat_time])
+        rr_hist1 <- res_list[[new_pat_cohort]]$Arms[[new_pat_arm]]$rr[plat_time, 1]
+        rr_hist2 <- res_list[[new_pat_cohort]]$Arms[[new_pat_arm]]$rr[plat_time, 2]
+        new_probs <- fun_multnom(rr_hist1, rr_hist2, correlation = correlation)
         draw <- t(stats::rmultinom(1, 1, new_probs))
-        resp_bio <- 0
-        resp_hist <- 0
+        resp_hist1 <- 0
+        resp_hist2 <- 0
         if (draw[1,2] == 1) {
-          resp_bio <- resp_bio + 1
+          resp_hist1 <- resp_hist1 + 1
         }
         if (draw[1,3] == 1) {
-          resp_hist <- resp_hist + 1
+          resp_hist2 <- resp_hist2 + 1
         }
         if (draw[1,4] == 1) {
-          resp_hist <- resp_hist + 1
-          resp_bio <- resp_bio + 1
+          resp_hist1 <- resp_hist1 + 1
+          resp_hist2 <- resp_hist2 + 1
         }
 
 
@@ -628,8 +680,8 @@ simulate_trial <- function(n_int, n_fin, cohorts_start = 1, design_type, arms_pe
             ArrivalTime = i, # current exact time
             Cohort      = new_pat_cohort,
             Arm         = new_pat_arm,
-            RespBio     = resp_bio,
-            RespHist    = resp_hist,
+            RespHist1   = resp_hist1,
+            RespHist2   = resp_hist2,
             HistMissing = sample(0:1, 1, prob = c(1 - missing_prob, missing_prob)) # sample whether hist endpoint will be missing
           )
 
@@ -638,35 +690,77 @@ simulate_trial <- function(n_int, n_fin, cohorts_start = 1, design_type, arms_pe
       }
 
       # Update the Meta information for every arm/cohort (i.e. how many outcomes are observed)
-      res_list <- observe_outcomes(res_list, i, bio_lag, hist_lag)
+      res_list <- observe_outcomes(res_list, i, hist_lag)
 
       # Check whether any analyses should be conducted now
-      # i.e. for interim check, if at least n_int patients per cohort have observed the biomarker outcome
-      ind_interim <- which(sapply(res_list, function(x) check_int_milestone(x, n_int = n_int)))
-      ind_final   <- which(sapply(res_list, function(x) check_fin_milestone(x, n_fin = n_fin)))
 
-      if (length(ind_interim) > 0) {
+      ind_interim1 <- which(sapply(res_list, function(x) check_int1_milestone(x, time = analysis_times[1])))
+      ind_interim2 <- which(sapply(res_list, function(x) check_int2_milestone(x, time = analysis_times[2])))
+      ind_final   <- which(sapply(res_list, function(x) check_fin_milestone(x, time = analysis_times[3])))
+
+      if (length(ind_interim1) > 0) {
         ############# conduct interim analysis
-        for (j in ind_interim) {
+        for (j in ind_interim1) {
 
           res_list <-
             make_decision_trial(
               res_list         = res_list,
               which_cohort     = j,
-              interim          = TRUE,
-              design_type      = design_type,
-              arms_per_cohort  = arms_per_cohort,
+              analysis_number  = 1,
               analysis_time    = i,
-              bio_lag          = bio_lag,
               hist_lag         = hist_lag,
               dataset          = df,
               sharing_type     = sharing_type,
+              endpoint_number  = 1,
               ...
             )
+
+          res_list <-
+            make_decision_trial(
+              res_list         = res_list,
+              which_cohort     = j,
+              analysis_number  = 1,
+              analysis_time    = i,
+              hist_lag         = hist_lag,
+              dataset          = df,
+              sharing_type     = sharing_type,
+              endpoint_number  = 2,
+              ...
+            )
+
+          # Get combined decision
+          if (composite == "or") {
+
+            # if any of the two endpoints is successful, declare success
+            if (res_list[[j]]$Meta$decision_hist1[1] == "GO_SUP"
+                | res_list[[j]]$Meta$decision_hist2[1] == "GO_SUP") {
+              res_list[[j]]$Meta$decision[1] <- "GO_SUP"
+            } else
+            # if both of the two endpoints are futile, declare futility
+            if (res_list[[j]]$Meta$decision_hist1[1] == "STOP_FUT"
+                & res_list[[j]]$Meta$decision_hist2[1] == "STOP_FUT") {
+              res_list[[j]]$Meta$decision[1] <- "STOP_FUT"
+            } else {
+              res_list[[j]]$Meta$decision[1] <- "CONTINUE"
+            }
+          } else if (composite == "and") {
+          # opposite of before
+            if (res_list[[j]]$Meta$decision_hist1[1] == "GO_SUP"
+                & res_list[[j]]$Meta$decision_hist2[1] == "GO_SUP") {
+              res_list[[j]]$Meta$decision[1] <- "GO_SUP"
+            } else
+              if (res_list[[j]]$Meta$decision_hist1[1] == "STOP_FUT"
+                  | res_list[[j]]$Meta$decision_hist2[1] == "STOP_FUT") {
+                res_list[[j]]$Meta$decision[1] <- "STOP_FUT"
+              } else {
+                res_list[[j]]$Meta$decision[1] <- "CONTINUE"
+              }
+          }
 
           # What happens at successful interim
           if (res_list[[j]]$Meta$decision[1] == "GO_SUP") {
             res_list[[j]]$Meta$decision[2] <- "GO_SUP"
+            res_list[[j]]$Meta$decision[3] <- "GO_SUP"
             if (first_success == -1) {
               first_success <- plat_time
             }
@@ -676,6 +770,84 @@ simulate_trial <- function(n_int, n_fin, cohorts_start = 1, design_type, arms_pe
           # What happens at unsuccessful interim
           if (res_list[[j]]$Meta$decision[1] == "STOP_FUT") {
             res_list[[j]]$Meta$decision[2] <- "STOP_FUT"
+            res_list[[j]]$Meta$decision[3] <- "STOP_FUT"
+            rand_list <- create_rand_list(res_list)
+          }
+
+        }
+      }
+
+      if (length(ind_interim2) > 0) {
+        ############# conduct interim analysis
+        for (j in ind_interim2) {
+
+          res_list <-
+            make_decision_trial(
+              res_list         = res_list,
+              which_cohort     = j,
+              analysis_number  = 2,
+              analysis_time    = i,
+              hist_lag         = hist_lag,
+              dataset          = df,
+              sharing_type     = sharing_type,
+              endpoint_number  = 1,
+              ...
+            )
+
+          res_list <-
+            make_decision_trial(
+              res_list         = res_list,
+              which_cohort     = j,
+              analysis_number  = 2,
+              analysis_time    = i,
+              hist_lag         = hist_lag,
+              dataset          = df,
+              sharing_type     = sharing_type,
+              endpoint_number  = 2,
+              ...
+            )
+
+          # Get combined decision
+          if (composite == "or") {
+
+            # if any of the two endpoints is successful, declare success
+            if (res_list[[j]]$Meta$decision_hist1[2] == "GO_SUP"
+                | res_list[[j]]$Meta$decision_hist2[2] == "GO_SUP") {
+              res_list[[j]]$Meta$decision[2] <- "GO_SUP"
+            } else
+              # if both of the two endpoints are futile, declare futility
+              if (res_list[[j]]$Meta$decision_hist1[2] == "STOP_FUT"
+                  & res_list[[j]]$Meta$decision_hist2[2] == "STOP_FUT") {
+                res_list[[j]]$Meta$decision[2] <- "STOP_FUT"
+              } else {
+                res_list[[j]]$Meta$decision[2] <- "CONTINUE"
+              }
+          } else if (composite == "and") {
+            # opposite of before
+            if (res_list[[j]]$Meta$decision_hist1[2] == "GO_SUP"
+                & res_list[[j]]$Meta$decision_hist2[2] == "GO_SUP") {
+              res_list[[j]]$Meta$decision[2] <- "GO_SUP"
+            } else
+              if (res_list[[j]]$Meta$decision_hist1[2] == "STOP_FUT"
+                  | res_list[[j]]$Meta$decision_hist2[2] == "STOP_FUT") {
+                res_list[[j]]$Meta$decision[2] <- "STOP_FUT"
+              } else {
+                res_list[[j]]$Meta$decision[2] <- "CONTINUE"
+              }
+          }
+
+          # What happens at successful interim
+          if (res_list[[j]]$Meta$decision[2] == "GO_SUP") {
+            res_list[[j]]$Meta$decision[3] <- "GO_SUP"
+            if (first_success == -1) {
+              first_success <- plat_time
+            }
+            rand_list <- create_rand_list(res_list)
+          }
+
+          # What happens at unsuccessful interim
+          if (res_list[[j]]$Meta$decision[2] == "STOP_FUT") {
+            res_list[[j]]$Meta$decision[3] <- "STOP_FUT"
             rand_list <- create_rand_list(res_list)
           }
 
@@ -690,18 +862,58 @@ simulate_trial <- function(n_int, n_fin, cohorts_start = 1, design_type, arms_pe
             make_decision_trial(
               res_list         = res_list,
               which_cohort     = j,
-              interim          = FALSE,
-              design_type      = design_type,
-              arms_per_cohort  = arms_per_cohort,
+              analysis_number  = 3,
               analysis_time    = i,
-              bio_lag          = bio_lag,
               hist_lag         = hist_lag,
               dataset          = df,
               sharing_type     = sharing_type,
+              endpoint_number  = 1,
               ...
             )
 
-          if (res_list[[j]]$Meta$decision[2] == "GO_SUP") {
+          res_list <-
+            make_decision_trial(
+              res_list         = res_list,
+              which_cohort     = j,
+              analysis_number  = 3,
+              analysis_time    = i,
+              hist_lag         = hist_lag,
+              dataset          = df,
+              sharing_type     = sharing_type,
+              endpoint_number  = 2,
+              ...
+            )
+
+          # Get combined decision
+          if (composite == "or") {
+
+            # if any of the two endpoints is successful, declare success
+            if (res_list[[j]]$Meta$decision_hist1[3] == "GO_SUP"
+                | res_list[[j]]$Meta$decision_hist2[3] == "GO_SUP") {
+              res_list[[j]]$Meta$decision[3] <- "GO_SUP"
+            } else
+              # if both of the two endpoints are futile, declare futility
+              if (res_list[[j]]$Meta$decision_hist1[3] == "STOP_FUT"
+                  & res_list[[j]]$Meta$decision_hist2[3] == "STOP_FUT") {
+                res_list[[j]]$Meta$decision[3] <- "STOP_FUT"
+              } else {
+                res_list[[j]]$Meta$decision[3] <- "STOP_N"
+              }
+          } else if (composite == "and") {
+            # opposite of before
+            if (res_list[[j]]$Meta$decision_hist1[3] == "GO_SUP"
+                & res_list[[j]]$Meta$decision_hist2[3] == "GO_SUP") {
+              res_list[[j]]$Meta$decision[3] <- "GO_SUP"
+            } else
+              if (res_list[[j]]$Meta$decision_hist1[3] == "STOP_FUT"
+                  | res_list[[j]]$Meta$decision_hist2[3] == "STOP_FUT") {
+                res_list[[j]]$Meta$decision[3] <- "STOP_FUT"
+              } else {
+                res_list[[j]]$Meta$decision[3] <- "STOP_N"
+              }
+          }
+
+          if (res_list[[j]]$Meta$decision[3] == "GO_SUP") {
             if (first_success == -1) {
               first_success <- plat_time
             }
@@ -714,13 +926,20 @@ simulate_trial <- function(n_int, n_fin, cohorts_start = 1, design_type, arms_pe
       random_stop <- sample(0:1, 1, prob = c(1 - safety_prob, safety_prob))
       if (random_stop) {
         if (res_list[[new_patcohort]]$Meta$decision[1] == "none")  {res_list[[new_patcohort]]$Meta$decision[1] <- "STOP_SAFETY"}
-        res_list[[new_patcohort]]$Meta$decision[2] <- "STOP_SAFETY"
+        if (res_list[[new_patcohort]]$Meta$decision[2] == "none")  {res_list[[new_patcohort]]$Meta$decision[2] <- "STOP_SAFETY"}
+        res_list[[new_patcohort]]$Meta$decision[3] <- "STOP_SAFETY"
         rand_list <- create_rand_list(res_list)
       }
 
-      # If all cohorts are stopped, stop trial
-      if (!any(sapply(res_list, function(x) x$Meta$decision[2]) %in% c("none", "CONTINUE"))) {
+      # If all cohorts are stopped, stop trial, but only if maximum number of cohorts are not reached
+      # Otherwise break loop
+
+      if (!any(sapply(res_list, function(x) x$Meta$decision[3]) %in% c("none", "CONTINUE")) &
+          length(res_list) == cohorts_max) {
         trial_stop <- 1
+      }
+
+      if (!any(sapply(res_list, function(x) x$Meta$decision[3]) %in% c("none", "CONTINUE"))) {
         break
       }
     }
@@ -736,21 +955,29 @@ simulate_trial <- function(n_int, n_fin, cohorts_start = 1, design_type, arms_pe
     # Check whether any new cohorts should be added to the trial
     # is maximum number of cohorts reached
     if (length(res_list) < cohorts_max) {
-      # is maximum number of parallel cohorts reached
-      if (sum(sapply(res_list, function(x) coh_left_check(x))) < cohorts_sim) {
-        # is cohort offset satisfied
-        if (plat_time - last_cohort_time > cohort_offset) {
-          # check random adding
-          if (!is.null(cohort_random)) {
-            coh_add <- coh_add + sample(0:1, 1, prob = c(1 - cohort_random, cohort_random))
-          }
-          # check fixed schedule adding
-          if (!is.null(cohort_fixed)) {
-            if (plat_time - last_cohort_time >= cohort_fixed) {
-              coh_add <- coh_add +1
+
+      # Check whether no cohort is active, then one is added immediately
+      if (!any(sapply(res_list, function(x) x$Meta$decision[3]) %in% c("none", "CONTINUE"))) {
+        coh_add <- 1
+        } else {
+
+        # is maximum number of parallel cohorts reached
+        if (sum(sapply(res_list, function(x) coh_left_check(x))) < cohorts_sim) {
+          # is cohort offset satisfied
+          if (plat_time - last_cohort_time > cohort_offset) {
+            # check random adding
+            if (!is.null(cohort_random)) {
+              coh_add <- coh_add + sample(0:1, 1, prob = c(1 - cohort_random, cohort_random))
+            }
+            # check fixed schedule adding
+            if (!is.null(cohort_fixed)) {
+              if (plat_time - last_cohort_time >= cohort_fixed) {
+                coh_add <- coh_add +1
+              }
             }
           }
         }
+
       }
     }
 
@@ -764,12 +991,10 @@ simulate_trial <- function(n_int, n_fin, cohorts_start = 1, design_type, arms_pe
           create_cohort_new(
             res_list,
             plat_time,
-            design_type,
-            arms_per_cohort,
-            rr_comb_vec,
-            rr_mono_vec,
-            rr_back_vec,
-            rr_plac_vec
+            rr_comb1_vec,
+            rr_comb2_vec,
+            rr_plac1_vec,
+            rr_plac2_vec
           )
       }
 
@@ -783,65 +1008,28 @@ simulate_trial <- function(n_int, n_fin, cohorts_start = 1, design_type, arms_pe
   }
 
   # Define truth via:
-  # a) Risk Difference & Combination Design
-  # a1) Combo > SoC (2 arms)
-  # a2) Combo > Mono > SoC (3+4 arms)
-  # b) Risk Difference & Doses Design
-  # b1) Any dose > SoC
-  # Use initial RR vectors that were assigned
+  # Is RR1 > RR2
 
   truth <- rep(NA, length(res_list))
 
 
-    for (i in 1:length(res_list)) {
-      if (arms_per_cohort == 2) {
-        truth[i] <-
-          (res_list[[i]]$Arms$Comb$rr[1] > res_list[[i]]$Arms$Plac$rr[1])
-      } else if (arms_per_cohort == 3) {
-
-        if (design_type == "combination") {
-
-          (res_list[[i]]$Arms$Comb$rr[1] > res_list[[i]]$Arms$Mono$rr[1]) &
-          (res_list[[i]]$Arms$Mono$rr[1] > res_list[[i]]$Arms$Plac$rr[1])
-
-        }
-
-        if (design_type == "doses") {
-
-          (res_list[[i]]$Arms$Comb$rr[1] > res_list[[i]]$Arms$Plac$rr[1]) &
-          (res_list[[i]]$Arms$Mono$rr[1] > res_list[[i]]$Arms$Plac$rr[1])
-
-        }
-
-      } else {
-
-        if (design_type == "combination") {
-
-          truth[i] <-
-            (res_list[[i]]$Arms$Comb$rr[1] > res_list[[i]]$Arms$Mono$rr[1]) &
-            (res_list[[i]]$Arms$Comb$rr[1] > res_list[[i]]$Arms$Back$rr[1]) &
-            (res_list[[i]]$Arms$Mono$rr[1] > res_list[[i]]$Arms$Plac$rr[1]) &
-            (res_list[[i]]$Arms$Back$rr[1] > res_list[[i]]$Arms$Plac$rr[1])
-
-        }
-
-        if (design_type == "doses") {
-
-          (res_list[[i]]$Arms$Comb$rr[1] > res_list[[i]]$Arms$Plac$rr[1]) &
-          (res_list[[i]]$Arms$Mono$rr[1] > res_list[[i]]$Arms$Plac$rr[1]) &
-          (res_list[[i]]$Arms$Back$rr[1] > res_list[[i]]$Arms$Plac$rr[1])
-
-        }
-
-      }
-
+  for (i in 1:length(res_list)) {
+    if (composite == "or") {
+      truth[i] <-
+        (res_list[[i]]$Arms$Comb$rr[1,1] > res_list[[i]]$Arms$Plac$rr[1,1])|
+        (res_list[[i]]$Arms$Comb$rr[1,2] > res_list[[i]]$Arms$Plac$rr[1,2])
+    } else if (composite == "and") {
+      truth[i] <-
+        (res_list[[i]]$Arms$Comb$rr[1,1] > res_list[[i]]$Arms$Plac$rr[1,1])&
+        (res_list[[i]]$Arms$Comb$rr[1,2] > res_list[[i]]$Arms$Plac$rr[1,2])
+    }
   }
 
   # Get final experimental response rates over time
-  rr_comb_final <- sapply(res_list, function(x) x$Arms$Comb$rr)
-  rr_plac_final <- sapply(res_list, function(x) x$Arms$Plac$rr)
-  rr_mono_final <- sapply(res_list, function(x) x$Arms$Mono$rr)
-  rr_back_final <- sapply(res_list, function(x) x$Arms$Back$rr)
+  rr_comb1_final <- sapply(res_list, function(x) x$Arms$Comb$rr[,1])
+  rr_comb2_final <- sapply(res_list, function(x) x$Arms$Comb$rr[,2])
+  rr_plac1_final <- sapply(res_list, function(x) x$Arms$Plac$rr[,1])
+  rr_plac2_final <- sapply(res_list, function(x) x$Arms$Plac$rr[,2])
 
   # Time and patients enrolled previous to first success
   # Get time stamp of first success and then compute numbers
@@ -855,30 +1043,28 @@ simulate_trial <- function(n_int, n_fin, cohorts_start = 1, design_type, arms_pe
 
     time_to_first_success <- NA
     pat_to_first_success <- NA
+
   }
 
   # Check which decisions were correct positives, false positives, etc.
-  cp <- sum(substring(sapply(res_list, function(x) x$Meta$decision[2]), 1, 2) == "GO" &  truth)
-  fp <- sum(substring(sapply(res_list, function(x) x$Meta$decision[2]), 1, 2) == "GO" & !truth)
-  cn <- sum(substring(sapply(res_list, function(x) x$Meta$decision[2]), 1, 2) == "ST" & !truth)
-  fn <- sum(substring(sapply(res_list, function(x) x$Meta$decision[2]), 1, 2) == "ST" &  truth)
+  cp <- sum(substring(sapply(res_list, function(x) x$Meta$decision[3]), 1, 2) == "GO" &  truth)
+  fp <- sum(substring(sapply(res_list, function(x) x$Meta$decision[3]), 1, 2) == "GO" & !truth)
+  cn <- sum(substring(sapply(res_list, function(x) x$Meta$decision[3]), 1, 2) == "ST" & !truth)
+  fn <- sum(substring(sapply(res_list, function(x) x$Meta$decision[3]), 1, 2) == "ST" &  truth)
 
   # Prepare return list
   ret <- list(
     Decision               = sapply(res_list, function(x) x$Meta$decision),
     Start_N                = sapply(res_list, function(x) x$Meta$start_n),
     Start_Time             = sapply(res_list, function(x) x$Meta$start_time),
-    RR_Comb                = rr_comb_final,
-    RR_Mono                = rr_mono_final,
-    RR_Back                = rr_back_final,
-    RR_Plac                = rr_plac_final,
+    RR_Comb1               = rr_comb1_final,
+    RR_Comb2               = rr_comb2_final,
+    RR_Plac1               = rr_plac1_final,
+    RR_Plac2               = rr_plac2_final,
     N_Cohorts              = length(res_list),
     Final_N_Cohort         = sapply(res_list, function(x) x$Meta$pat_enrolled),
     Final_N_Cohort_Trial   = mean(sapply(res_list, function(x) x$Meta$pat_enrolled)),
     Total_N                = sum(sapply(res_list, function(x) x$Meta$pat_enrolled)),
-    Overrunning            = sapply(res_list, function(x) ifelse(x$Meta$decision[1] == "CONTINUE", 0, x$Meta$pat_enrolled - n_int)),
-    # does not take into account random stopping
-    Overrunning_Trial      = mean(sapply(res_list, function(x) ifelse(x$Meta$decision[1] == "CONTINUE", 0, x$Meta$pat_enrolled - n_int))),
     Total_Time             = plat_time,
     Time_First_Suc         = time_to_first_success,
     Pat_First_Suc          = pat_to_first_success,
@@ -892,12 +1078,27 @@ simulate_trial <- function(n_int, n_fin, cohorts_start = 1, design_type, arms_pe
     PTP_Trial              = ifelse(!is.na(cp/(cp + fn)), cp/(cp + fn), NA),
     PTT1ER_Trial           = ifelse(!is.na(fp/(fp + cn)), fp/(fp + cn), NA),
     any_P                  = as.numeric((cp + fp) > 0),
-    Int_GO                 = sum(sapply(res_list, function(x) x$Meta$sup_interim), na.rm = TRUE),
-    Int_STOP               = sum(sapply(res_list, function(x) x$Meta$fut_interim), na.rm = TRUE),
-    Safety_STOP            = sum(sapply(res_list, function(x) (x$Meta$decision[2] == "STOP_SAFETY")), na.rm = TRUE),
-    Int_GO_Trial           = sum(sapply(res_list, function(x) x$Meta$sup_interim), na.rm = TRUE) / length(res_list),
-    Int_STOP_Trial         = sum(sapply(res_list, function(x) x$Meta$fut_interim), na.rm = TRUE) / length(res_list),
-    Safety_STOP_Trial      = sum(sapply(res_list, function(x) (x$Meta$decision[2] == "STOP_SAFETY")), na.rm = TRUE) / length(res_list)
+
+    Intx1_GO                = sum(sapply(res_list, function(x) x$Meta$decision[1] == "GO_SUP"), na.rm = TRUE),
+    Intx1_STOP              = sum(sapply(res_list, function(x) x$Meta$decision[1] == "STOP_FUT"), na.rm = TRUE),
+
+    Intx2_GO                = sum(sapply(res_list, function(x) x$Meta$decision[2] == "GO_SUP"), na.rm = TRUE),
+    Intx2_STOP              = sum(sapply(res_list, function(x) x$Meta$decision[2] == "STOP_FUT"), na.rm = TRUE),
+
+    Intx3_GO                = sum(sapply(res_list, function(x) x$Meta$decision[3] == "GO_SUP"), na.rm = TRUE),
+    Intx3_STOP              = sum(sapply(res_list, function(x) x$Meta$decision[3] == "STOP_FUT"), na.rm = TRUE),
+
+    # Int11_GO                = sum(sapply(res_list, function(x) x$Meta$sup_interim11), na.rm = TRUE),
+    # Int11_STOP              = sum(sapply(res_list, function(x) x$Meta$fut_interim11), na.rm = TRUE),
+    # Int21_GO                = sum(sapply(res_list, function(x) x$Meta$sup_interim21), na.rm = TRUE),
+    # Int21_STOP              = sum(sapply(res_list, function(x) x$Meta$fut_interim21), na.rm = TRUE),
+
+    # Int12_GO                = sum(sapply(res_list, function(x) x$Meta$sup_interim12), na.rm = TRUE),
+    # Int12_STOP              = sum(sapply(res_list, function(x) x$Meta$fut_interim12), na.rm = TRUE),
+    # Int22_GO                = sum(sapply(res_list, function(x) x$Meta$sup_interim22), na.rm = TRUE),
+    # Int22_STOP              = sum(sapply(res_list, function(x) x$Meta$fut_interim22), na.rm = TRUE),
+
+    Safety_STOP            = sum(sapply(res_list, function(x) (x$Meta$decision[3] == "STOP_SAFETY")), na.rm = TRUE)
   )
 
   if (stage_data) {
@@ -905,39 +1106,6 @@ simulate_trial <- function(n_int, n_fin, cohorts_start = 1, design_type, arms_pe
   } else {
     ret <- list(Trial_Overview = ret)
   }
-
-  # Whatif Analysis
-
-  whatif_dec <- rep(NA, length(res_list))
-
-  for (i in 1:length(whatif_dec)) {
-
-    res_list <-
-      make_decision_trial(
-        res_list         = res_list,
-        which_cohort     = i,
-        interim          = FALSE,
-        design_type      = design_type,
-        arms_per_cohort  = arms_per_cohort,
-        analysis_time    = Inf,
-        bio_lag          = bio_lag,
-        hist_lag         = hist_lag,
-        dataset          = df,
-        hist_missing     = FALSE,
-        sharing_type     = sharing_type,
-        ...
-      )
-
-    whatif_dec[i] <- res_list[[i]]$Meta$decision[2]
-
-  }
-
-  ret$Trial_Overview <-
-    c(
-      Whatif = list(whatif_dec),
-      Whatif_Agreement_Trial = mean(whatif_dec == ret$Trial_Overview$Decision[2,]),
-      ret$Trial_Overview
-  )
 
   return(ret)
 
