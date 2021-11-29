@@ -320,10 +320,6 @@ make_decision_trial <- function(res_list, which_cohort, Bayes_Sup1 = NULL, Bayes
       resp_hist_cohort <- dat_vec[ind_c]
       resp_hist_external <- dat_vec[ind_e]
 
-      # compute responders from cohort
-      suc_bio_c <- sum(resp_bio_cohort)
-      N_c <- length(resp_bio_cohort)
-
       suc_hist_c <- sum(resp_hist_cohort)
       N_c <- length(resp_hist_cohort)
 

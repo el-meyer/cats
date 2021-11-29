@@ -82,7 +82,7 @@
 #' random = random, prob_comb1_rr = prob_comb1_rr, prob_comb2_rr = prob_comb2_rr,
 #' prob_plac1_rr = prob_plac1_rr, prob_plac2_rr = prob_plac2_rr,
 #' stage_data = stage_data, cohort_random = cohort_random, cohorts_max = cohorts_max,
-#' sr_drugs_pos = sr_drugs_pos, sharing_type = sharing_type,
+#' sr_drugs_pos = sr_drugs_pos, sharing_type = sharing_type, correlation = correlation,
 #' safety_prob = safety_prob, Bayes_Sup1 = Bayes_Sup1, Bayes_Sup2 = Bayes_Sup2,
 #' cohort_offset = cohort_offset, sr_first_pos = sr_first_pos,
 #' missing_prob = missing_prob, cohort_fixed = cohort_fixed, accrual_type = accrual_type,

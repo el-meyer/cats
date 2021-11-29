@@ -143,7 +143,7 @@
 #' n_fin = n_fin, random_type = random_type, composite = composite,
 #' rr_comb1 = rr_comb1, rr_comb2 = rr_comb2, rr_plac1 = rr_plac1, rr_plac2 = rr_plac2,
 #' random = random, prob_comb1_rr = prob_comb1_rr, prob_comb2_rr = prob_comb2_rr,
-#' prob_plac1_rr = prob_plac1_rr, prob_plac2_rr = prob_plac2_rr,
+#' prob_plac1_rr = prob_plac1_rr, prob_plac2_rr = prob_plac2_rr, correlation = correlation,
 #' stage_data = stage_data, cohort_random = cohort_random, cohorts_max = cohorts_max,
 #' sr_drugs_pos = sr_drugs_pos, sharing_type = sharing_type,
 #' safety_prob = safety_prob, Bayes_Sup1 = Bayes_Sup1, Bayes_Sup2 = Bayes_Sup2,
@@ -156,7 +156,7 @@
 #' @export
 simulate_trial <- function(n_fin, cohorts_start = 1, composite = "or",
                            rr_comb1, rr_plac1, rr_comb2, rr_plac2,
-                           rr_transform, random_type = NULL, trial_struc = "all_plac", random = FALSE,
+                           random_type = NULL, random = FALSE, correlation,
                            prob_comb1_rr = NULL, prob_plac1_rr = NULL, prob_comb2_rr = NULL,
                            prob_plac2_rr = NULL, stage_data = FALSE,
                            cohort_random = NULL, cohorts_max = 4, sr_drugs_pos = 1,
@@ -382,7 +382,7 @@ simulate_trial <- function(n_fin, cohorts_start = 1, composite = "or",
         res_list[[i]]$Arms[[j]]$rr <-
           rbind(
             res_list[[i]]$Arms[[j]]$rr,
-            pmin(tail(res_list[[i]]$Arms[[j]]$rr, 1) + time_trend, 1)
+            pmin(utils::tail(res_list[[i]]$Arms[[j]]$rr, 1) + time_trend, 1)
           )
       }
     }
@@ -452,7 +452,7 @@ simulate_trial <- function(n_fin, cohorts_start = 1, composite = "or",
   prob11 <-
     as.numeric(
       mvtnorm::pmvnorm(
-        upper = c(qnorm(rr_short), qnorm(rr_long)),
+        upper = c(stats::qnorm(rr_short), stats::qnorm(rr_long)),
         corr = matrix(
           c(1, correlation,
             correlation, 1),
@@ -464,8 +464,8 @@ simulate_trial <- function(n_fin, cohorts_start = 1, composite = "or",
   prob10 <-
     as.numeric(
       mvtnorm::pmvnorm(
-        lower = c(qnorm(rr_short), -Inf),
-        upper = c(Inf, qnorm(rr_long)),
+        lower = c(stats::qnorm(rr_short), -Inf),
+        upper = c(Inf, stats::qnorm(rr_long)),
         corr = matrix(
           c(1, correlation,
             correlation, 1),
@@ -477,8 +477,8 @@ simulate_trial <- function(n_fin, cohorts_start = 1, composite = "or",
   prob01 <-
     as.numeric(
       mvtnorm::pmvnorm(
-        lower = c(-Inf, qnorm(rr_long)),
-        upper = c(qnorm(rr_short), Inf),
+        lower = c(-Inf, stats::qnorm(rr_long)),
+        upper = c(stats::qnorm(rr_short), Inf),
         corr = matrix(
           c(1, correlation,
             correlation, 1),
@@ -490,7 +490,7 @@ simulate_trial <- function(n_fin, cohorts_start = 1, composite = "or",
 
   prob00 <-
     as.numeric(mvtnorm::pmvnorm(
-      lower = c(qnorm(rr_short), qnorm(rr_long)),
+      lower = c(stats::qnorm(rr_short), stats::qnorm(rr_long)),
       upper = c(Inf, Inf),
       corr = matrix(
         c(1, correlation,
@@ -613,14 +613,14 @@ simulate_trial <- function(n_fin, cohorts_start = 1, composite = "or",
     }
 
     if (accrual_type == "poisson") {
-      new_pats <- c(new_pats, rpois(1, accrual_param))
+      new_pats <- c(new_pats, stats::rpois(1, accrual_param))
     }
 
     if (accrual_type == "exponential") {
       new_pats <- c(new_pats, round(accrual_param ^ (plat_time)))
     }
 
-    new_arrival_times <- sort(runif(new_pats[plat_time])) + plat_time - 1
+    new_arrival_times <- sort(stats::runif(new_pats[plat_time])) + plat_time - 1
     pats_arrival_times <- c(pats_arrival_times, new_arrival_times)
 
     # Loop over patient arrival times

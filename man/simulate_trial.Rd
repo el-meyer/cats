@@ -5,24 +5,20 @@
 \title{Simulates the cohort trial.}
 \usage{
 simulate_trial(
-  n_int,
   n_fin,
   cohorts_start = 1,
-  design_type,
-  arms_per_cohort,
-  rr_comb,
-  rr_mono = 1,
-  rr_back = 1,
-  rr_plac,
-  rr_transform,
+  composite = "or",
+  rr_comb1,
+  rr_plac1,
+  rr_comb2,
+  rr_plac2,
   random_type = NULL,
-  trial_struc = "all_plac",
   random = FALSE,
-  prob_comb_rr = NULL,
-  prob_mono_rr = c(1),
-  prob_back_rr = c(1),
-  prob_plac_rr = NULL,
-  prob_rr_transform = prob_rr_transform,
+  correlation,
+  prob_comb1_rr = NULL,
+  prob_plac1_rr = NULL,
+  prob_comb2_rr = NULL,
+  prob_plac2_rr = NULL,
   stage_data = FALSE,
   cohort_random = NULL,
   cohorts_max = 4,
@@ -37,40 +33,26 @@ simulate_trial(
   cohort_fixed = NULL,
   accrual_type = "fixed",
   accrual_param = 9,
-  bio_lag = 12,
   hist_lag = 48,
+  analysis_times = c(0.5, 0.75, 1),
   time_trend = time_trend,
   ...
 )
 }
 \arguments{
-\item{n_int}{Sample size per cohort to conduct interim analysis}
-
 \item{n_fin}{Sample size per cohort at final}
 
 \item{cohorts_start}{Number of cohorts to start the platform with}
 
-\item{design_type}{Either "combination" or "doses"}
+\item{composite}{Rule for deriving the composite endpoint. By default "or", otherwise "and"}
 
-\item{arms_per_cohort}{An integer between 2 and 4.
-If 2, then only comb and SoC.
-If 3, then only Comb, Mono and SoC.
-If 4, then all four arms.}
+\item{rr_comb1}{Response rates of treatment, histology endpoint 1}
 
-\item{rr_comb}{Response rates of combination therapies // high dose}
+\item{rr_plac1}{Response rate of the SoC, histology endpoint 1}
 
-\item{rr_mono}{Response rate of mono therapies // medium dose}
+\item{rr_comb2}{Response rates of treatment, histology endpoint 2}
 
-\item{rr_back}{Response rates of backbone arms  // low dose}
-
-\item{rr_plac}{Response rate of the placebo // SoC}
-
-\item{rr_transform}{Function transforming all the above response rates to a vector of four
-probabilities for the multinomial simulation
-First element is probability of both failures.
-Second element is probability of biomarker success and histology failure.
-Third element is probability of biomarker failure and histology success.
-Fourth element is probability of both success.}
+\item{rr_plac2}{Response rate of the SoC, histology endpoint 2}
 
 \item{random_type}{How should the response rates be drawn randomly? Options are:
 
@@ -93,15 +75,15 @@ Fourth element is probability of both success.}
 
 \item{random}{Should the response rates of the arms be randomly drawn from rr_exp? Default is FALSE.}
 
-\item{prob_comb_rr}{If random == TRUE, what are the probabilities with which the elements of rr_comb should be drawn?}
+\item{correlation}{Correlation between histology endpoints}
 
-\item{prob_mono_rr}{If random == TRUE, what are the probabilities with which the elements of rr_mono should be drawn?}
+\item{prob_comb1_rr}{If random == TRUE, what are the probabilities with which the elements of rr_comb1 should be drawn?}
 
-\item{prob_back_rr}{If random == TRUE, what are the probabilities with which the elements of rr_back should be drawn?}
+\item{prob_plac1_rr}{If random == TRUE, what are the probabilities with which the elements of rr_plac1 should be drawn?}
 
-\item{prob_plac_rr}{If random == TRUE, what are the probabilities with which the elements of rr_plac should be drawn?}
+\item{prob_comb2_rr}{If random == TRUE, what are the probabilities with which the elements of rr_comb2 should be drawn?}
 
-\item{prob_rr_transform}{If random == TRUE, what are the probabilities with which the elements of rr_transform should be drawn?}
+\item{prob_plac2_rr}{If random == TRUE, what are the probabilities with which the elements of rr_plac2 should be drawn?}
 
 \item{stage_data}{Should individual stage data be passed along? Default is TRUE}
 
@@ -136,9 +118,9 @@ Another option is "concurrent" or "dynamic" or "cohort".}
 
 \item{accrual_param}{Parameter used for patient accrual}
 
-\item{bio_lag}{Time until biomarker outcome is observed}
-
 \item{hist_lag}{Time until histology outcome is observed}
+
+\item{analysis_times}{Vector of information fractions needed for first interim, second interim and final}
 
 \item{time_trend}{Additive term by which response rates increase at every time step}
 
@@ -154,27 +136,23 @@ Simulates the cohort trial.
 
 random <- TRUE
 
-rr_comb <- c(0.20, 0.25, 0.3)
-prob_comb_rr <- c(0.4, 0.4, 0.2)
-rr_plac <- c(0.10, 0.12, 0.14)
-prob_plac_rr <- c(0.25, 0.5, 0.25)
-rr_back <- 1
-prob_back_rr <- 1
-rr_mono <- 1
-prob_mono_rr <- 1
+rr_comb1 <- 0.25
+prob_comb1_rr <- 1
+rr_comb2 <- 0.20
+prob_comb2_rr <- 1
+rr_plac1 <- 0.10
+prob_plac1_rr <- 1
+rr_plac2 <- 0.10
+prob_plac2_rr <- 1
 
-rr_transform <- list(function(x) {return(c(0.85*(1 - x), (1-0.85)*(1-x), (1-0.85)*x, 0.85*x))})
-prob_rr_transform <- 1
+correlation <- 0.8
 
 cohorts_start <- 2
-design_type <- "combination"
-arms_per_cohort <- 2
 cohorts_max <- 5
 safety_prob <- 0
 sharing_type <- "concurrent"
 sr_drugs_pos <- 5
 sr_first_pos <- FALSE
-n_int <- 50
 n_fin <- 100
 stage_data <- TRUE
 cohort_random <- 0.01
@@ -183,29 +161,39 @@ cohorts_sim <- Inf
 random_type <- "absolute"
 missing_prob <- 0.2
 cohort_fixed <- 5
-bio_lag <- 12
 hist_lag <- 48
+analysis_times <- c(0.5, 0.75, 1)
 accrual_type <- "fixed"
 accrual_param <- 9
 time_trend <- 0.001
+composite <- "or"
 
-# Vergleich Combo vs Plac
-Bayes_Sup1 <- matrix(nrow = 1, ncol = 2)
-Bayes_Sup1[1,] <- c(0.00, 0.95)
-Bayes_Sup <- list(list(Bayes_Sup1),
-                  list(Bayes_Sup1))
+# Comparison IA1
+Bayes_Sup11 <- matrix(nrow = 2, ncol = 2)
+Bayes_Sup11[1,] <- c(0.00, 0.95)
+Bayes_Sup11[2,] <- c(0.10, 0.80)
+# Comparison IA2
+Bayes_Sup12 <- matrix(nrow = 2, ncol = 2)
+Bayes_Sup12[1,] <- c(0.00, 0.95)
+Bayes_Sup12[2,] <- c(0.10, 0.80)
+# Comparison IA3
+Bayes_Sup13 <- matrix(nrow = 2, ncol = 2)
+Bayes_Sup13[1,] <- c(0.00, 0.95)
+Bayes_Sup13[2,] <- c(0.10, 0.80)
+
+Bayes_Sup1 <- Bayes_Sup2 <- list(list(Bayes_Sup11), list(Bayes_Sup12), list(Bayes_Sup13))
 
 a <- simulate_trial(
-n_int = n_int, n_fin = n_fin, random_type = random_type,
-rr_comb = rr_comb, rr_mono = rr_mono, rr_back = rr_back, rr_plac = rr_plac,
-rr_transform = rr_transform, random = random, prob_comb_rr = prob_comb_rr,
-prob_mono_rr = prob_mono_rr, prob_back_rr = prob_back_rr, prob_plac_rr = prob_plac_rr,
+n_fin = n_fin, random_type = random_type, composite = composite,
+rr_comb1 = rr_comb1, rr_comb2 = rr_comb2, rr_plac1 = rr_plac1, rr_plac2 = rr_plac2,
+random = random, prob_comb1_rr = prob_comb1_rr, prob_comb2_rr = prob_comb2_rr,
+prob_plac1_rr = prob_plac1_rr, prob_plac2_rr = prob_plac2_rr, correlation = correlation,
 stage_data = stage_data, cohort_random = cohort_random, cohorts_max = cohorts_max,
-sr_drugs_pos = sr_drugs_pos, sharing_type = sharing_type,design_type = design_type,
-safety_prob = safety_prob, Bayes_Sup = Bayes_Sup, prob_rr_transform = prob_rr_transform,
-cohort_offset = cohort_offset, sr_first_pos = sr_first_pos, arms_per_cohort = arms_per_cohort,
+sr_drugs_pos = sr_drugs_pos, sharing_type = sharing_type,
+safety_prob = safety_prob, Bayes_Sup1 = Bayes_Sup1, Bayes_Sup2 = Bayes_Sup2,
+cohort_offset = cohort_offset, sr_first_pos = sr_first_pos,
 missing_prob = missing_prob, cohort_fixed = cohort_fixed, accrual_type = accrual_type,
-accrual_param = accrual_param, bio_lag = bio_lag, hist_lag = hist_lag,
+accrual_param = accrual_param, hist_lag = hist_lag, analysis_times = analysis_times,
 time_trend = time_trend, cohorts_start = cohorts_start, cohorts_sim = cohorts_sim
 )
 

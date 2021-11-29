@@ -49,54 +49,64 @@ of simulations of the trial and saves the result in an Excel file
 
 random <- TRUE
 
-rr_comb <- c(0.20, 0.25, 0.3)
-prob_comb_rr <- c(0.4, 0.4, 0.2)
-rr_plac <- c(0.10, 0.12, 0.14)
-prob_plac_rr <- c(0.25, 0.5, 0.25)
+rr_comb1 <- 0.25
+prob_comb1_rr <- 1
+rr_comb2 <- 0.20
+prob_comb2_rr <- 1
+rr_plac1 <- 0.10
+prob_plac1_rr <- 1
+rr_plac2 <- 0.10
+prob_plac2_rr <- 1
 
-rr_transform <- list(function(x) {return(c(0.85*(1 - x), (1-0.85)*(1-x), (1-0.85)*x, 0.85*x))})
-prob_rr_transform <- 1
+correlation <- 0.8
 
 cohorts_start <- 2
-design_type <- "combination"
-arms_per_cohort <- 2
-cohorts_max <- 3
+cohorts_max <- 5
 safety_prob <- 0
 sharing_type <- "concurrent"
 sr_drugs_pos <- 5
 sr_first_pos <- FALSE
-n_int <- 50
 n_fin <- 100
 stage_data <- TRUE
-cohort_random <- 0.1
+cohort_random <- 0.01
 cohort_offset <- 0
 cohorts_sim <- Inf
-random_type <- "risk_difference"
+random_type <- "absolute"
 missing_prob <- 0.2
-cohort_fixed <- NULL
-bio_lag <- 12
+cohort_fixed <- 5
 hist_lag <- 48
+analysis_times <- c(0.5, 0.75, 1)
 accrual_type <- "fixed"
 accrual_param <- 9
 time_trend <- 0.001
+composite <- "or"
 
-# Vergleich Combo vs Plac
-Bayes_Sup1 <- matrix(nrow = 1, ncol = 2)
-Bayes_Sup1[1,] <- c(0.00, 0.95)
-Bayes_Sup <- list(list(Bayes_Sup1),
-                  list(Bayes_Sup1))
+# Comparison IA1
+Bayes_Sup11 <- matrix(nrow = 2, ncol = 2)
+Bayes_Sup11[1,] <- c(0.00, 0.95)
+Bayes_Sup11[2,] <- c(0.10, 0.80)
+# Comparison IA2
+Bayes_Sup12 <- matrix(nrow = 2, ncol = 2)
+Bayes_Sup12[1,] <- c(0.00, 0.95)
+Bayes_Sup12[2,] <- c(0.10, 0.80)
+# Comparison IA3
+Bayes_Sup13 <- matrix(nrow = 2, ncol = 2)
+Bayes_Sup13[1,] <- c(0.00, 0.95)
+Bayes_Sup13[2,] <- c(0.10, 0.80)
+
+Bayes_Sup1 <- Bayes_Sup2 <- list(list(Bayes_Sup11), list(Bayes_Sup12), list(Bayes_Sup13))
 
 ocs <- trial_ocs(
-n_int = n_int, n_fin = n_fin, random_type = random_type,
-rr_comb = rr_comb, rr_mono = rr_mono, rr_back = rr_back, rr_plac = rr_plac,
-rr_transform = rr_transform, random = random, prob_comb_rr = prob_comb_rr,
-prob_mono_rr = prob_mono_rr, prob_back_rr = prob_back_rr, prob_plac_rr = prob_plac_rr,
+n_fin = n_fin, random_type = random_type, composite = composite,
+rr_comb1 = rr_comb1, rr_comb2 = rr_comb2, rr_plac1 = rr_plac1, rr_plac2 = rr_plac2,
+random = random, prob_comb1_rr = prob_comb1_rr, prob_comb2_rr = prob_comb2_rr,
+prob_plac1_rr = prob_plac1_rr, prob_plac2_rr = prob_plac2_rr,
 stage_data = stage_data, cohort_random = cohort_random, cohorts_max = cohorts_max,
-sr_drugs_pos = sr_drugs_pos, sharing_type = sharing_type,
-safety_prob = safety_prob, Bayes_Sup = Bayes_Sup, prob_rr_transform = prob_rr_transform,
+sr_drugs_pos = sr_drugs_pos, sharing_type = sharing_type, correlation = correlation,
+safety_prob = safety_prob, Bayes_Sup1 = Bayes_Sup1, Bayes_Sup2 = Bayes_Sup2,
 cohort_offset = cohort_offset, sr_first_pos = sr_first_pos,
 missing_prob = missing_prob, cohort_fixed = cohort_fixed, accrual_type = accrual_type,
-accrual_param = accrual_param, bio_lag = bio_lag, hist_lag = hist_lag,
+accrual_param = accrual_param, hist_lag = hist_lag, analysis_times = analysis_times,
 time_trend = time_trend, cohorts_start = cohorts_start, cohorts_sim = cohorts_sim,
 iter = 10, coresnum = 1, save = FALSE, ret_list = TRUE, plot_ocs = TRUE
 )

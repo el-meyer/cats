@@ -7,21 +7,19 @@
 make_decision_trial(
   res_list,
   which_cohort,
-  Bayes_Sup = NULL,
-  Bayes_Fut = NULL,
+  Bayes_Sup1 = NULL,
+  Bayes_Fut1 = NULL,
+  Bayes_Sup2 = NULL,
+  Bayes_Fut2 = NULL,
   w = 0.5,
-  P_Sup = NULL,
-  P_Fut = NULL,
-  interim,
+  analysis_number,
   beta_prior = 0.5,
+  hist_lag,
+  endpoint_number,
   analysis_time,
   dataset,
   hist_miss = TRUE,
   sharing_type,
-  design_type,
-  bio_lag,
-  hist_lag,
-  arms_per_cohort,
   ...
 )
 }
@@ -31,19 +29,23 @@ other functions in this package}
 
 \item{which_cohort}{Current cohort that should be evaluated}
 
-\item{Bayes_Sup}{List of matrices with rows corresponding to number of multiple Bayesian posterior two-arm combination criteria for superiority}
+\item{Bayes_Sup1}{List of matrices with rows corresponding to number of multiple Bayesian posterior two-arm combination criteria for superiority of histology endpoint 1}
 
-\item{Bayes_Fut}{List of matrices with rows corresponding to number of multiple Bayesian posterior two-arm combination criteria for futility}
+\item{Bayes_Fut1}{List of matrices with rows corresponding to number of multiple Bayesian posterior two-arm combination criteria for futility of histology endpoint 1}
+
+\item{Bayes_Sup2}{List of matrices with rows corresponding to number of multiple Bayesian posterior two-arm combination criteria for superiority of histology endpoint 2}
+
+\item{Bayes_Fut2}{List of matrices with rows corresponding to number of multiple Bayesian posterior two-arm combination criteria for futility of histology endpoint 2}
 
 \item{w}{If dynamic borrowing, what is the prior choice for w. Default is 0.5.}
 
-\item{P_Sup}{List with sublists corresponding to number of multiple frequentist test-based combination criteria for superiority}
-
-\item{P_Fut}{List with sublists corresponding to number of multiple frequentist test-based combination criteria for futility}
-
-\item{interim}{Is the analysis conducted an interim or a final analysis?}
+\item{analysis_number}{1st, second or third analysis?}
 
 \item{beta_prior}{Prior parameter for all Beta Distributions. Default is 0.5.}
+
+\item{hist_lag}{Histology Lag}
+
+\item{endpoint_number}{Should histology endpoint 1 or 2 be evaluated?}
 
 \item{analysis_time}{Platform Time of Analysis}
 
@@ -52,14 +54,6 @@ other functions in this package}
 \item{hist_miss}{Whether or not to exclude missing histology data}
 
 \item{sharing_type}{Type of Data Sharing to perform}
-
-\item{design_type}{Which design_type to use}
-
-\item{bio_lag}{Biomarker Lag}
-
-\item{hist_lag}{Histology Lag}
-
-\item{arms_per_cohort}{Number of arms per cohort}
 
 \item{...}{Further arguments inherited from simulate_trial}
 }
@@ -74,7 +68,7 @@ Given a res_list object, checks the supplied decision criteria and saves the res
 # Example 1
 
 # Initialize empty data frame
-cols <- c("PatID", "ArrivalTime", "Cohort", "Arm", "RespBio", "RespHist", "HistMissing")
+cols <- c("PatID", "ArrivalTime", "Cohort", "Arm", "RespHist1", "RespHist2", "HistMissing")
 df <- matrix(nrow = 100, ncol = length(cols))
 colnames(df) <- cols
 df <- as.data.frame(df)
@@ -82,103 +76,79 @@ df$PatID <- 1:100
 df$ArrivalTime <- sort(runif(100, min = 0, max = 5))
 df$Cohort <- sample(1:2, 100, replace = TRUE)
 df$Arm <- sample(c("Combo", "Plac"), 100, replace = TRUE)
-df$RespBio <- sample(0:1, 100, replace = TRUE)
-df$RespHist <- sample(0:1, 100, replace = TRUE)
+df$RespHist1 <- sample(0:1, 100, replace = TRUE)
+df$RespHist2 <- sample(0:1, 100, replace = TRUE)
 df$HistMissing <- sample(0:1, 100, replace = TRUE, prob = c(0.95, 0.05))
 
-# Comparison Combo vs Mono
-Bayes_Sup1 <- matrix(nrow = 3, ncol = 2)
-Bayes_Sup1[1,] <- c(0.00, 0.95)
-Bayes_Sup1[2,] <- c(0.10, 0.80)
-Bayes_Sup1[3,] <- c(0.15, 0.50)
-# Comparison Combo vs Backbone
-Bayes_Sup2 <- matrix(nrow = 3, ncol = 2)
-Bayes_Sup2[1,] <- c(0.00, 0.95)
-Bayes_Sup2[2,] <- c(NA, NA)
-Bayes_Sup2[3,] <- c(NA, NA)
-# Comparison Mono vs Placebo
-Bayes_Sup3 <- matrix(nrow = 3, ncol = 2)
-Bayes_Sup3[1,] <- c(0.00, 0.95)
-Bayes_Sup3[2,] <- c(0.10, 0.80)
-Bayes_Sup3[3,] <- c(NA, NA)
-#' # Comparison Backbone vs Placebo
-Bayes_Sup4 <- matrix(nrow = 3, ncol = 2)
-Bayes_Sup4[1,] <- c(0.00, 0.95)
-Bayes_Sup4[2,] <- c(0.10, 0.80)
-Bayes_Sup4[3,] <- c(NA, NA)
-Bayes_Sup <- list(list(Bayes_Sup1, Bayes_Sup2, Bayes_Sup3, Bayes_Sup4),
-                  list(Bayes_Sup1, Bayes_Sup2, Bayes_Sup3, Bayes_Sup4))
+# Initialize res_list Object
 
-sharing_type <- "all"
-interim <- TRUE
-which_cohort <- 1
-
-# DO NOT RUN
-make_decision_trial(
-res_list = res_list, which_cohort = which_cohort,
-interim = interim, missing_prob = missing_prob,
-Bayes_Sup = Bayes_Sup, sharing_type = sharing_type,
-seed_missing = seed_missing,
+res_list <-
+rep(
+  list(
+    list(
+      Meta = list(
+        decision = rep("none", 3),
+        decision_hist1 = rep("none", 3),
+        decision_hist2 = rep("none", 3),
+        start_n = 0,
+        start_time = 0,
+        pat_enrolled = 0
+      ),
+      Arms = rep(
+        list(
+          list(
+            rr = NULL,
+            hist_observed = 0
+          )
+        ),
+        2
+      )
+    )
+  ),
+  2
 )
 
-# Multiple decision rules
+arm_names <- c("Comb", "Plac")
 
-# Vergleich Combo vs Mono
-Bayes_Fut1 <- matrix(nrow = 1, ncol = 2)
-Bayes_Fut1[1,] <- c(NA, NA)
-# Vergleich Combo vs Backbone
-Bayes_Fut2 <- matrix(nrow = 1, ncol = 2)
-Bayes_Fut2[1,] <- c(NA, NA)
-# Vergleich Mono vs Placebo
-Bayes_Fut3 <- matrix(nrow = 1, ncol = 2)
-Bayes_Fut3[1,] <- c(0.00, 0.60)
-Bayes_Fut4 <- matrix(nrow = 1, ncol = 2)
-Bayes_Fut4[1,] <- c(0.00, 0.60)
-Bayes_Fut <- list(list(Bayes_Fut1, Bayes_Fut2, Bayes_Fut3, Bayes_Fut4),
-                  list(Bayes_Fut1, Bayes_Fut2, Bayes_Fut3, Bayes_Fut4))
+for (i in 1:2) {
+  names(res_list)[i] <- paste0("Cohort", i)
+  names(res_list[[i]]$Arms) <- arm_names
 
-# Comparison Combo vs Mono
-P_Sup1 <- list(list(
-testfun = function(x) stats::prop.test(x, alternative = "less", correct = FALSE),
-p_sup = 0.025, p_adj = "B"))
-# Comparison Combo vs Backbone
-P_Sup2 <- list(list(
-testfun = function(x) stats::prop.test(x, alternative = "less", correct = FALSE),
-p_sup = 0.025, p_adj = "B"))
-# Comparison Mono vs Placebo
-P_Sup3 <- list(list(
-testfun = function(x) stats::prop.test(x, alternative = "less", correct = FALSE),
-p_sup = 0.050, p_adj = "B"))
-P_Sup4 <- list(list(
-testfun = function(x) stats::prop.test(x, alternative = "less", correct = FALSE),
-p_sup = 0.050, p_adj = "B"))
-P_Sup <- list(list(P_Sup1, P_Sup2, P_Sup3, P_Sup4),
-              list(P_Sup1, P_Sup2, P_Sup3, P_Sup4))
+  res_list[[i]]$Arms$Comb$rr <- matrix(c(0.2, 0.2), ncol = 2)
+  res_list[[i]]$Arms$Plac$rr <- matrix(c(0.1, 0.1), ncol = 2)
+}
 
-# Comparison Combo vs Mono
-P_Fut1 <- list(list(
-testfun = function(x) stats::prop.test(x, alternative = "less", correct = FALSE),
-p_fut = 0.5, p_adj = "none"))
-# Comparison Combo vs Backbone
-P_Fut2 <- list(list(
-testfun = function(x) stats::prop.test(x, alternative = "less", correct = FALSE),
-p_fut = 0.5, p_adj = "none"))
-# Comparison Mono vs Placebo
-P_Fut3 <- list(list(
-testfun = function(x) stats::prop.test(x, alternative = "less", correct = FALSE),
-p_fut = 0.5, p_adj = "none"))
-# Comparison Backbone Placebo
-P_Fut4 <- list(list(
-testfun = function(x) stats::prop.test(x, alternative = "less", correct = FALSE),
-p_fut = 0.5, p_adj = "none"))
-P_Fut <- list(list(P_Fut1, P_Fut2, P_Fut3, P_Fut4),
-              list(P_Fut1, P_Fut2, P_Fut3, P_Fut4))
+sharing_type <- "all"
+analysis_number <- 3
+which_cohort <- 1
+endpoint_number <- 2
+hist_lag <- 1
+analysis_time <- 6
+
+# Comparison IA1
+Bayes_Sup11 <- matrix(nrow = 2, ncol = 2)
+Bayes_Sup11[1,] <- c(0.00, 0.95)
+Bayes_Sup11[2,] <- c(0.10, 0.80)
+# Comparison IA2
+Bayes_Sup12 <- matrix(nrow = 2, ncol = 2)
+Bayes_Sup12[1,] <- c(0.00, 0.95)
+Bayes_Sup12[2,] <- c(NA, NA)
+# Comparison IA3
+Bayes_Sup13 <- matrix(nrow = 2, ncol = 2)
+Bayes_Sup13[1,] <- c(0.00, 0.95)
+Bayes_Sup13[2,] <- c(0.10, 0.80)
+
+Bayes_Sup1 <- Bayes_Sup2 <- list(list(Bayes_Sup11), list(Bayes_Sup12), list(Bayes_Sup13))
+
 
 # DO NOT RUN
-make_decision_trial(res_list = res_list, which_cohort = which_cohort, interim = interim,
-Bayes_Sup = Bayes_Sup, sharing_type = sharing_type,
-Bayes_Fut = Bayes_Fut, Bayes_SA_Sup = Bayes_SA_Sup, Bayes_SA_Fut = Bayes_SA_Fut, P_Sup = P_Sup,
-P_Fut = P_Fut, Est_Sup_Fut = Est_Sup_Fut, CI_Sup_Fut = CI_Sup_Fut
+res_list2 <-
+make_decision_trial(
+res_list = res_list, which_cohort = which_cohort,
+analysis_number = analysis_number, endpoint_number = endpoint_number,
+Bayes_Sup1 = Bayes_Sup1, Bayes_Sup2 = Bayes_Sup2,
+dataset = df, analysis_time = analysis_time, hist_lag = hist_lag,
+sharing_type = sharing_type
 )
 
 }

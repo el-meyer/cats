@@ -4,7 +4,7 @@ Title: Cohort plAtform Trial Simulation
 Version: 1.0.0
 Author: Elias Laurin Meyer [aut, cre]
 Maintainer: Elias Laurin Meyer <elias.meyer@meduniwien.ac.at>
-Description: No decr
+Description: Cohort plAtform Trial Simulation, now using the P2b design.
 License: GPL-3
 Encoding: UTF-8
 Depends: R (>= 3.5.0)
@@ -21,7 +21,8 @@ Imports:
     openxlsx,
     forcats,
     epitools,
-    zoo
+    zoo,
+    mvtnorm
 Suggests: 
     knitr,
     rmarkdown,
