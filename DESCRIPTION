@@ -1,7 +1,7 @@
 Package: Cats
 Type: Package
 Title: Cohort plAtform Trial Simulation
-Version: 1.0.1
+Version: 1.0.2
 Author: Elias Laurin Meyer [aut, cre]
 Maintainer: Elias Laurin Meyer <elias.meyer@meduniwien.ac.at>
 Description: Cohort plAtform Trial Simulation, now using the P2b design.

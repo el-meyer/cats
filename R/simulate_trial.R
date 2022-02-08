@@ -92,13 +92,13 @@
 #'
 #' random <- TRUE
 #'
-#' rr_comb1 <- 0.25
+#' rr_comb1 <- 0.10
 #' prob_comb1_rr <- 1
-#' rr_comb2 <- 0.20
+#' rr_comb2 <- 0.45
 #' prob_comb2_rr <- 1
 #' rr_plac1 <- 0.10
 #' prob_plac1_rr <- 1
-#' rr_plac2 <- 0.10
+#' rr_plac2 <- 0.20
 #' prob_plac2_rr <- 1
 #'
 #' correlation <- 0.8
@@ -152,17 +152,17 @@
 #' Bayes_Fut1 <- Bayes_Fut2 <- list(list(Bayes_Fut11), list(Bayes_Fut12), list(Bayes_Fut13))
 #'
 #' a <- simulate_trial(
-#' n_fin = n_fin, random_type = random_type, composite = composite,
-#' rr_comb1 = rr_comb1, rr_comb2 = rr_comb2, rr_plac1 = rr_plac1, rr_plac2 = rr_plac2,
-#' random = random, prob_comb1_rr = prob_comb1_rr, prob_comb2_rr = prob_comb2_rr,
-#' prob_plac1_rr = prob_plac1_rr, prob_plac2_rr = prob_plac2_rr, correlation = correlation,
-#' stage_data = stage_data, cohort_random = cohort_random, cohorts_max = cohorts_max,
-#' sr_drugs_pos = sr_drugs_pos, sharing_type = sharing_type, Bayes_Fut1 = Bayes_Fut1,
-#' safety_prob = safety_prob, Bayes_Sup1 = Bayes_Sup1, Bayes_Sup2 = Bayes_Sup2,
-#' cohort_offset = cohort_offset, sr_first_pos = sr_first_pos, Bayes_Fut2 = Bayes_Fut2,
-#' missing_prob = missing_prob, cohort_fixed = cohort_fixed, accrual_type = accrual_type,
-#' accrual_param = accrual_param, hist_lag = hist_lag, analysis_times = analysis_times,
-#' time_trend = time_trend, cohorts_start = cohorts_start, cohorts_sim = cohorts_sim
+# n_fin = n_fin, random_type = random_type, composite = composite,
+# rr_comb1 = rr_comb1, rr_comb2 = rr_comb2, rr_plac1 = rr_plac1, rr_plac2 = rr_plac2,
+# random = random, prob_comb1_rr = prob_comb1_rr, prob_comb2_rr = prob_comb2_rr,
+# prob_plac1_rr = prob_plac1_rr, prob_plac2_rr = prob_plac2_rr, correlation = correlation,
+# stage_data = stage_data, cohort_random = cohort_random, cohorts_max = cohorts_max,
+# sr_drugs_pos = sr_drugs_pos, sharing_type = sharing_type, Bayes_Fut1 = Bayes_Fut1,
+# safety_prob = safety_prob, Bayes_Sup1 = Bayes_Sup1, Bayes_Sup2 = Bayes_Sup2,
+# cohort_offset = cohort_offset, sr_first_pos = sr_first_pos, Bayes_Fut2 = Bayes_Fut2,
+# missing_prob = missing_prob, cohort_fixed = cohort_fixed, accrual_type = accrual_type,
+# accrual_param = accrual_param, hist_lag = hist_lag, analysis_times = analysis_times,
+# time_trend = time_trend, cohorts_start = cohorts_start, cohorts_sim = cohorts_sim
 #' )
 #'
 #' @export
@@ -473,7 +473,7 @@ simulate_trial <- function(n_fin, cohorts_start = 1, composite = "or",
       )
     )
 
-  prob10 <-
+  prob01 <-
     as.numeric(
       mvtnorm::pmvnorm(
         lower = c(stats::qnorm(rr_short), -Inf),
@@ -486,7 +486,7 @@ simulate_trial <- function(n_fin, cohorts_start = 1, composite = "or",
       )
     )
 
-  prob01 <-
+  prob10 <-
     as.numeric(
       mvtnorm::pmvnorm(
         lower = c(-Inf, stats::qnorm(rr_long)),
