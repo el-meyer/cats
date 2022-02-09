@@ -3,12 +3,12 @@ Type: Package
 Title: Cohort plAtform Trial Simulation
 Version: 1.0.2
 Authors@R: c(person("Elias Laurin", "Meyer", email = "elias.meyer@meduniwien.ac.at", role = c("aut","cre")), 
-  	         person("Mesenbrink", "Peter", role = "ctb"),
-  	         person("König", "Franz", role = "ctb")) 
-Author: Elias Laurin Meyer [aut, cre], Peter Mesenbrink [ctb], Franz König [ctb]
+  	         person("Peter", "Mesenbrink", role = "ctb"),
+  	         person("Franz", "Koenig", role = "ctb")) 
+Author: Elias Laurin Meyer [aut, cre], Peter Mesenbrink [ctb], Franz Koenig [ctb]
 Maintainer: Elias Laurin Meyer <elias.meyer@meduniwien.ac.at>
 Description: Cohort plAtform Trial Simulation; NASH P2B Design.
-License: GPL-3
+License: MIT + file LICENSE
 Encoding: UTF-8
 Depends: R (>= 3.5.0)
 RoxygenNote: 7.1.1
