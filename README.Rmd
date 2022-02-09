@@ -13,31 +13,31 @@ knitr::opts_chunk$set(
 )
 ```
 
-# CohortPlat
+# cats
 
 <!-- badges: start -->
 <!-- badges: end -->
 
-The goal of CohortPlat is to facilitate the simulation of cohort platform trials for combination treatments with binary endpoints.
+The goal of cats is to facilitate the simulation of cohort platform trials with either one short-term and one long-term binary endpoint (in the legacy branch) or two primary binary endpoints (master branch). 
 
 ## Installation
 
-You can install the released version of CohortPlat from [CRAN](https://CRAN.R-project.org) with:
+You can install the released version of Cats from [CRAN](https://CRAN.R-project.org) as soon as it is published with:
 
 ``` r
-install.packages("CohortPlat")
+install.packages("cats")
 ```
 
 And the development version from [GitHub](https://github.com/) with:
 
 ``` r
 # install.packages("devtools")
-devtools::install_github("el-meyer/CohortPlat")
+devtools::install_github("el-meyer/cats")
 ```
 
 ## Usage
 
-Please see the [reference manual](https://el-meyer.github.io/CohortPlat/) for more information on the usage of this package, or jump directly to the [vignette](https://el-meyer.github.io/CohortPlat/articles/my-vignette.html).
+Please see the [reference manual](https://el-meyer.github.io/cats/) for more information on the usage of this package. The usage is nearly identical to that of the CohortPlat package by the same authors. A detailed vignette for that package's usage can be found [here](https://el-meyer.github.io/CohortPlat/articles/my-vignette.html).
 
 
 ## Disclaimer

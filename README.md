@@ -1,1 +1,49 @@
-cats
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+# cats
+
+<!-- badges: start -->
+<!-- badges: end -->
+
+The goal of cats is to facilitate the simulation of cohort platform
+trials with either one short-term and one long-term binary endpoint (in
+the legacy branch) or two primary binary endpoints (master branch).
+
+## Installation
+
+You can install the released version of Cats from
+[CRAN](https://CRAN.R-project.org) as soon as it is published with:
+
+``` r
+install.packages("cats")
+```
+
+And the development version from [GitHub](https://github.com/) with:
+
+``` r
+# install.packages("devtools")
+devtools::install_github("el-meyer/cats")
+```
+
+## Usage
+
+Please see the [reference manual](https://el-meyer.github.io/cats/) for
+more information on the usage of this package. The usage is nearly
+identical to that of the CohortPlat package by the same authors. A
+detailed vignette for that package’s usage can be found
+[here](https://el-meyer.github.io/CohortPlat/articles/my-vignette.html).
+
+## Disclaimer
+
+EU-PEARL (EU Patient-cEntric clinicAl tRial pLatforms) project has
+received funding from the Innovative Medicines Initiative (IMI) 2 Joint
+Undertaking (JU) under grant agreement No 853966. This Joint Undertaking
+receives support from the European Union’s Horizon 2020 research and
+innovation program and EFPIA and Children’s Tumor Foundation, Global
+Alliance for TB Drug Development non-profit organization, Springworks
+Therapeutics Inc. This publication reflects the authors’ views. Neither
+IMI nor the European Union, EFPIA, or any Associated Partners are
+responsible for any use that may be made of the information contained
+herein. The research of Elias Laurin Meyer was funded until 11/2020 by
+Novartis through the University and not at an individual level.
