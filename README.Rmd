@@ -22,7 +22,7 @@ The goal of cats is to facilitate the simulation of cohort platform trials with 
 
 ## Installation
 
-You can install the released version of Cats from [CRAN](https://CRAN.R-project.org) as soon as it is published with:
+You can install the released version of Cats from [CRAN](https://CRAN.R-project.org) using:
 
 ``` r
 install.packages("cats")

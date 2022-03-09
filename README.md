@@ -13,7 +13,7 @@ the legacy branch) or two primary binary endpoints (master branch).
 ## Installation
 
 You can install the released version of Cats from
-[CRAN](https://CRAN.R-project.org) as soon as it is published with:
+[CRAN](https://CRAN.R-project.org) using:
 
 ``` r
 install.packages("cats")

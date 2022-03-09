@@ -88,10 +88,8 @@
 #' missing_prob = missing_prob, cohort_fixed = cohort_fixed, accrual_type = accrual_type,
 #' accrual_param = accrual_param, hist_lag = hist_lag, analysis_times = analysis_times,
 #' time_trend = time_trend, cohorts_start = cohorts_start, cohorts_sim = cohorts_sim,
-#' iter = 10, coresnum = 1, save = FALSE, ret_list = TRUE, plot_ocs = TRUE
+#' iter = 2, coresnum = 1, save = FALSE, ret_list = TRUE, plot_ocs = TRUE
 #' )
-#'
-#' ocs[[3]]
 #'
 #' @export
 trial_ocs <- function(iter, coresnum = 1, save = FALSE, path = NULL, filename = NULL, ret_list = FALSE,
@@ -117,9 +115,9 @@ trial_ocs <- function(iter, coresnum = 1, save = FALSE, path = NULL, filename = 
     ##### Run parallel simulations #####
 
     # run in parallel
-    trial_results <- foreach::foreach(i = 1:iter, .packages = "Cats", .export = export) %dopar% {
+    trial_results <- foreach::foreach(i = 1:iter, .packages = "cats", .export = export) %dopar% {
       # first call program function
-      trial_res <- do.call(Cats::simulate_trial, arguments)
+      trial_res <- do.call(cats::simulate_trial, arguments)
       # Now save individual trial results
       trial_res
     }

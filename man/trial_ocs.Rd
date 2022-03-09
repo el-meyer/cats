@@ -108,9 +108,7 @@ cohort_offset = cohort_offset, sr_first_pos = sr_first_pos,
 missing_prob = missing_prob, cohort_fixed = cohort_fixed, accrual_type = accrual_type,
 accrual_param = accrual_param, hist_lag = hist_lag, analysis_times = analysis_times,
 time_trend = time_trend, cohorts_start = cohorts_start, cohorts_sim = cohorts_sim,
-iter = 10, coresnum = 1, save = FALSE, ret_list = TRUE, plot_ocs = TRUE
+iter = 2, coresnum = 1, save = FALSE, ret_list = TRUE, plot_ocs = TRUE
 )
-
-ocs[[3]]
 
 }
