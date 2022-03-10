@@ -1,7 +1,7 @@
 Package: cats
 Type: Package
 Title: Cohort Platform Trial Simulation
-Version: 1.0.2
+Version: 1.0.3
 Authors@R: c(person("Elias Laurin", "Meyer", email = "elias.meyer@meduniwien.ac.at", role = c("aut","cre")), 
   	         person("Peter", "Mesenbrink", role = "ctb"),
   	         person("Franz", "Koenig", role = "ctb")) 
@@ -12,7 +12,7 @@ Description: Cohort plAtform Trial Simulation whereby every cohort consists of t
              decisions are made using either Bayesian or frequentist decision rules. 
              Realistic trial trajectories are simulated and the operating characteristics of the 
              designs are calculated.
-License: MIT + file LICENSE
+License: GPL-3
 Encoding: UTF-8
 Depends: R (>= 3.5.0)
 RoxygenNote: 7.1.2
