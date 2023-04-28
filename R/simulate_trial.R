@@ -265,7 +265,7 @@ simulate_trial <- function(n_fin, cohorts_start = 1, composite = "or",
             Meta = list(
               decision = rep("none", 3),
               decision_hist1 = rep("none", 3),
-              decision_hsit2 = rep("none", 3),
+              decision_hist2 = rep("none", 3),
               start_n = sum(sapply(res_list, function(x) x$Meta$pat_enrolled), na.rm = T),
               start_time = plat_time,
               pat_enrolled = 0
