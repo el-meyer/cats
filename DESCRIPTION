@@ -16,6 +16,8 @@ License: GPL-3
 Encoding: UTF-8
 Depends: R (>= 3.5.0)
 RoxygenNote: 7.1.2
+URL: https://el-meyer.github.io/cats/, https://github.com/el-meyer/cats
+BugReports: https://github.com/el-meyer/cats/issues
 Imports: 
     dplyr,
     purrr,
